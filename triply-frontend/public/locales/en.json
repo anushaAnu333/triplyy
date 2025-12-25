@@ -1,0 +1,130 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "search": "Search",
+    "filter": "Filter",
+    "noResults": "No results found",
+    "currency": "AED"
+  },
+  "nav": {
+    "home": "Home",
+    "destinations": "Destinations",
+    "bookings": "My Bookings",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "login": "Login",
+    "register": "Get Started",
+    "logout": "Logout"
+  },
+  "home": {
+    "hero": {
+      "title": "Explore the World",
+      "titleHighlight": "Your Way",
+      "subtitle": "Book your dream destination with just AED 199 deposit. Unlock your calendar for a full year of adventure.",
+      "cta": "Explore Destinations",
+      "ctaSecondary": "Get Started"
+    },
+    "features": {
+      "title": "Why Choose TRIPLY?",
+      "subtitle": "We make travel planning simple, flexible, and affordable.",
+      "destinations": {
+        "title": "Curated Destinations",
+        "description": "Hand-picked travel experiences to the most beautiful places on Earth."
+      },
+      "flexibility": {
+        "title": "1-Year Flexibility",
+        "description": "Pay a small deposit and unlock your calendar for an entire year."
+      },
+      "security": {
+        "title": "Secure Booking",
+        "description": "Your payments are protected with bank-level security."
+      },
+      "affiliate": {
+        "title": "Affiliate Program",
+        "description": "Earn commissions by referring friends and family."
+      }
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "Book your dream trip in just 3 simple steps.",
+      "step1": {
+        "title": "Choose Destination",
+        "description": "Browse our curated collection of amazing destinations."
+      },
+      "step2": {
+        "title": "Pay Deposit",
+        "description": "Secure your booking with just AED 199 deposit."
+      },
+      "step3": {
+        "title": "Select Dates",
+        "description": "Choose your travel dates anytime within the year."
+      }
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to your account to continue",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account?",
+      "register": "Sign up"
+    },
+    "register": {
+      "title": "Create Account",
+      "subtitle": "Join TRIPLY and start your travel adventure",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email",
+      "phone": "Phone Number",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "login": "Sign in",
+      "terms": "By creating an account, you agree to our Terms of Service and Privacy Policy"
+    }
+  },
+  "destinations": {
+    "title": "Discover Your Next Adventure",
+    "subtitle": "Explore our curated collection of breathtaking destinations around the world.",
+    "searchPlaceholder": "Search destinations...",
+    "filters": "Filters",
+    "found": "destinations found",
+    "noResults": "No destinations found",
+    "viewDetails": "View Details",
+    "from": "From"
+  },
+  "booking": {
+    "status": {
+      "pending_deposit": "Pending Deposit",
+      "deposit_paid": "Deposit Paid",
+      "dates_selected": "Dates Selected",
+      "confirmed": "Confirmed",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "depositAmount": "Deposit: AED {amount}",
+    "selectDates": "Select Dates",
+    "confirmBooking": "Confirm Booking",
+    "cancelBooking": "Cancel Booking"
+  },
+  "footer": {
+    "tagline": "Your trusted travel partner. Book your dream destinations with flexible payment options.",
+    "destinations": "Destinations",
+    "company": "Company",
+    "contact": "Contact",
+    "copyright": "© {year} TRIPLY. All rights reserved."
+  }
+}
+

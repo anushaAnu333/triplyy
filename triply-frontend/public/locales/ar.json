@@ -1,0 +1,170 @@
+{
+  "common": {
+    "appName": "تريبلي",
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ",
+    "success": "تم بنجاح",
+    "submit": "إرسال",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "view": "عرض",
+    "search": "بحث",
+    "filter": "تصفية",
+    "sortBy": "ترتيب حسب",
+    "currency": "درهم إماراتي"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "destinations": "الوجهات",
+    "bookings": "الحجوزات",
+    "dashboard": "لوحة التحكم",
+    "profile": "الملف الشخصي",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج"
+  },
+  "home": {
+    "hero": {
+      "title": "استكشف العالم معنا",
+      "subtitle": "اكتشف وجهات سفر مذهلة واحجز رحلتك القادمة بكل سهولة",
+      "cta": "استكشف الوجهات"
+    },
+    "featured": {
+      "title": "الوجهات المميزة",
+      "subtitle": "اختر من بين أفضل الوجهات السياحية"
+    },
+    "howItWorks": {
+      "title": "كيف يعمل",
+      "step1": {
+        "title": "اختر وجهتك",
+        "description": "تصفح مجموعتنا المنسقة من الوجهات المذهلة"
+      },
+      "step2": {
+        "title": "ادفع العربون",
+        "description": "أمّن حجزك بدفع عربون بسيط"
+      },
+      "step3": {
+        "title": "اختر تواريخك",
+        "description": "احصل على تقويم مفتوح لمدة عام كامل لاختيار تواريخ سفرك"
+      }
+    }
+  },
+  "destinations": {
+    "title": "وجهاتنا",
+    "subtitle": "اكتشف أجمل الأماكن حول العالم",
+    "searchPlaceholder": "ابحث عن وجهة...",
+    "noResults": "لم يتم العثور على وجهات",
+    "viewDetails": "عرض التفاصيل",
+    "bookNow": "احجز الآن",
+    "days": "أيام",
+    "nights": "ليالي",
+    "from": "يبدأ من"
+  },
+  "booking": {
+    "title": "حجز رحلتك",
+    "depositAmount": "مبلغ العربون",
+    "travellers": "عدد المسافرين",
+    "specialRequests": "طلبات خاصة",
+    "affiliateCode": "رمز الإحالة",
+    "proceedToPayment": "المتابعة للدفع",
+    "confirmBooking": "تأكيد الحجز",
+    "bookingConfirmed": "تم تأكيد الحجز!",
+    "bookingReference": "رقم الحجز",
+    "calendarUnlocked": "تقويمك مفتوح الآن لمدة عام واحد",
+    "selectDates": "اختر تواريخ السفر",
+    "status": {
+      "pending_deposit": "في انتظار العربون",
+      "deposit_paid": "تم دفع العربون",
+      "dates_selected": "تم اختيار التواريخ",
+      "confirmed": "مؤكد",
+      "rejected": "مرفوض",
+      "cancelled": "ملغي"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "تسجيل الدخول",
+      "subtitle": "أهلاً بعودتك! أدخل بياناتك للمتابعة",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "noAccount": "ليس لديك حساب؟",
+      "signUp": "سجل الآن"
+    },
+    "register": {
+      "title": "إنشاء حساب",
+      "subtitle": "انضم إلينا واستكشف العالم",
+      "firstName": "الاسم الأول",
+      "lastName": "اسم العائلة",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "confirmPassword": "تأكيد كلمة المرور",
+      "hasAccount": "لديك حساب بالفعل؟",
+      "signIn": "تسجيل الدخول"
+    }
+  },
+  "profile": {
+    "title": "ملفي الشخصي",
+    "personalInfo": "المعلومات الشخصية",
+    "accountInfo": "معلومات الحساب",
+    "emailVerified": "البريد الإلكتروني مؤكد",
+    "changePassword": "تغيير كلمة المرور",
+    "becomeAffiliate": "كن شريكاً",
+    "affiliateDescription": "اكسب عمولات من خلال إحالة الأصدقاء والعائلة"
+  },
+  "affiliate": {
+    "dashboard": {
+      "title": "لوحة تحكم الشريك",
+      "totalEarnings": "إجمالي الأرباح",
+      "pendingEarnings": "الأرباح المعلقة",
+      "paidOut": "المبلغ المدفوع",
+      "totalReferrals": "إجمالي الإحالات"
+    },
+    "codes": {
+      "title": "رموز الإحالة الخاصة بك",
+      "copyCode": "نسخ الرمز",
+      "generateNew": "إنشاء رمز جديد"
+    },
+    "commissions": {
+      "title": "سجل العمولات",
+      "pending": "معلقة",
+      "approved": "مُوافق عليها",
+      "paid": "مدفوعة"
+    }
+  },
+  "admin": {
+    "dashboard": {
+      "title": "لوحة تحكم المسؤول",
+      "totalRevenue": "إجمالي الإيرادات",
+      "totalBookings": "إجمالي الحجوزات",
+      "totalUsers": "إجمالي المستخدمين",
+      "affiliates": "الشركاء"
+    },
+    "bookings": {
+      "title": "إدارة الحجوزات",
+      "confirm": "تأكيد",
+      "reject": "رفض",
+      "rejectionReason": "سبب الرفض"
+    },
+    "destinations": {
+      "title": "إدارة الوجهات",
+      "addNew": "إضافة وجهة جديدة"
+    },
+    "availability": {
+      "title": "تقويم التوفر",
+      "blockDates": "حظر التواريخ",
+      "unblockDates": "إلغاء حظر التواريخ",
+      "setSlots": "تحديد عدد الأماكن"
+    }
+  },
+  "footer": {
+    "about": "عن تريبلي",
+    "contact": "اتصل بنا",
+    "privacy": "سياسة الخصوصية",
+    "terms": "الشروط والأحكام",
+    "copyright": "جميع الحقوق محفوظة"
+  }
+}
+

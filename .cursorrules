@@ -1,0 +1,477 @@
+# TRIPLY Project - Cursor AI Rules
+
+## Project Context
+TRIPLY is a travel booking platform with deposit-based reservations (AED 199), admin-controlled availability, affiliate referral system, and automated communications. Built with Next.js 14+ (frontend) and Express.js/MongoDB (backend).
+
+---
+
+## Tech Stack Enforcement
+
+### Frontend (Always Use)
+- **Framework**: Next.js 14+ with App Router (not Pages Router)
+- **Language**: TypeScript (strict mode)
+- **Styling**: Tailwind CSS only
+- **UI Components**: shadcn/ui components
+- **Forms**: React Hook Form + Zod validation
+- **API Calls**: Axios with React Query for caching
+- **i18n**: next-intl for translations
+
+### Backend (Always Use)
+- **Runtime**: Node.js with Express.js
+- **Language**: TypeScript
+- **Database**: MongoDB with Mongoose ODM
+- **Auth**: JWT (access + refresh tokens)
+- **Validation**: Joi or Express Validator
+- **File Upload**: Multer + Cloudinary
+- **Email**: Nodemailer + SendGrid/SES
+
+---
+
+## Code Standards
+
+### General Rules
+1. **TypeScript**: All files must be .ts or .tsx with proper type definitions
+2. **No any types**: Use proper TypeScript types or interfaces
+3. **Error Handling**: Always use try-catch for async operations
+4. **Validation**: Validate all inputs on both frontend and backend
+5. **Comments**: Add JSDoc comments for complex functions
+
+### Naming Conventions
+- **Files**: camelCase for utilities, PascalCase for components
+- **Components**: PascalCase (e.g., `BookingForm.tsx`)
+- **Functions**: camelCase (e.g., `createBooking`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `DEFAULT_DEPOSIT_AMOUNT`)
+- **Interfaces**: PascalCase with 'I' prefix optional (e.g., `User` or `IUser`)
+- **Types**: PascalCase (e.g., `BookingStatus`)
+
+### File Structure
+```
+Frontend: /src/app/(group)/page/route
+Backend: /src/feature/controller|route|service
+```
+
+---
+
+## Database Schema Rules
+
+### Required Mongoose Practices
+1. Always define timestamps: `{ timestamps: true }`
+2. Use indexes for frequently queried fields
+3. Reference relationships with `ref` and `ObjectId`
+4. Validate required fields with Mongoose validators
+5. Use enums for status fields
+
+### Collection Standards
+- **Users**: Email unique, password hashed (bcrypt 10 rounds)
+- **Bookings**: Generate unique `bookingReference` (format: TRP-YYYYMMDD-XXXXX)
+- **Availability**: Compound index on `(destinationId, date)`
+- **Soft Delete**: Use `isActive` or `deletedAt` instead of actual deletion
+
+---
+
+## API Development Rules
+
+### Endpoint Standards
+1. **Base URL**: `/api/v1/{resource}`
+2. **HTTP Methods**: 
+   - GET: retrieve data
+   - POST: create new resources
+   - PUT: update entire resource
+   - PATCH: partial update
+   - DELETE: remove/deactivate
+3. **Status Codes**:
+   - 200: Success
+   - 201: Created
+   - 400: Bad Request
+   - 401: Unauthorized
+   - 403: Forbidden
+   - 404: Not Found
+   - 500: Server Error
+
+### Response Format
+Always return consistent JSON structure:
+```typescript
+{
+  success: boolean,
+  message: string,
+  data?: any,
+  error?: string,
+  meta?: { page, limit, total } // for paginated responses
+}
+```
+
+### Authentication Flow
+1. Login returns `accessToken` (15min) + `refreshToken` (7d)
+2. Store refresh token in httpOnly cookie
+3. Require auth middleware for protected routes
+4. Verify JWT and attach `req.user` for authenticated requests
+
+---
+
+## Security Requirements
+
+### ALWAYS Implement
+1. **Input Sanitization**: Sanitize all user inputs
+2. **Password Hashing**: Use bcrypt with minimum 10 rounds
+3. **JWT Secrets**: Never hardcode, use environment variables
+4. **Rate Limiting**: 
+   - Login: 5 attempts per 15 minutes
+   - API: 100 requests per 15 minutes per user
+5. **CORS**: Whitelist only frontend domain
+6. **File Upload**: Validate type, size, scan for malware
+7. **SQL Injection**: Use Mongoose parameterized queries only
+8. **XSS Prevention**: Escape all dynamic content
+
+### NEVER Do
+- Store plain text passwords
+- Expose sensitive data in error messages
+- Store payment card details (use Stripe)
+- Allow unrestricted file uploads
+- Return detailed error stack traces in production
+
+---
+
+## Booking Flow Implementation
+
+### Critical Business Logic
+1. **Deposit Payment** → Status: `deposit_paid`, unlock calendar for 1 year
+2. **Date Selection** → Status: `dates_selected`, notify admin
+3. **Admin Confirmation** → Status: `confirmed`, send confirmation email
+4. **Calendar Unlock**: Set `calendarUnlockedUntil = Date.now() + 365 days`
+
+### Availability Checking
+```typescript
+// Always verify availability before confirming dates
+const isAvailable = await Availability.find({
+  destinationId,
+  date: { $gte: startDate, $lte: endDate },
+  $expr: { $gt: ['$availableSlots', '$bookedSlots'] },
+  isBlocked: false
+});
+```
+
+### Status Flow Validation
+Only allow valid state transitions:
+```
+pending_deposit → deposit_paid → dates_selected → confirmed/rejected
+```
+
+---
+
+## Frontend Component Rules
+
+### Component Structure
+```typescript
+// Always structure components this way
+'use client'; // if client component
+
+import { useState, useEffect } from 'react';
+import { ComponentProps } from '@/types';
+
+interface Props {
+  // Define props
+}
+
+export default function ComponentName({ prop }: Props) {
+  // Hooks first
+  const [state, setState] = useState();
+  
+  // Effects
+  useEffect(() => {}, []);
+  
+  // Handlers
+  const handleAction = () => {};
+  
+  // Render
+  return (
+    <div className="tailwind-classes">
+      {/* JSX */}
+    </div>
+  );
+}
+```
+
+### Styling Rules
+1. Use Tailwind utility classes only (no custom CSS unless absolutely necessary)
+2. Use shadcn/ui components for complex UI elements
+3. Responsive design: mobile-first approach
+4. Dark mode: Not required for MVP
+
+### State Management
+1. Use React Context for global auth state
+2. Use React Query for server state (caching, refetching)
+3. Use local state for UI-only state
+4. Avoid Redux unless necessary
+
+---
+
+## Email Implementation
+
+### Trigger Events
+Send automated emails for:
+1. **Deposit Confirmation** (`deposit_paid`)
+2. **Date Selection Notification** (to admin and user)
+3. **Booking Confirmation** (`confirmed`)
+4. **Booking Rejection** (`rejected`)
+5. **Calendar Expiry Reminder** (30 days before expiry)
+
+### Email Template Standards
+- Use responsive HTML templates
+- Include clear CTAs
+- Add booking reference in subject
+- Support both English and Arabic
+- Log all emails in `EmailLogs` collection
+
+---
+
+## Affiliate System Rules
+
+### Commission Calculation
+```typescript
+// Create commission record on deposit payment
+const commissionAmount = depositAmount * (affiliateCommissionRate / 100);
+
+await Commission.create({
+  affiliateId,
+  bookingId,
+  affiliateCode,
+  bookingAmount: depositAmount,
+  commissionAmount,
+  status: 'pending'
+});
+```
+
+### Validation
+- Validate affiliate code exists and is active before accepting
+- Prevent self-referrals (user cannot use their own code)
+- Track usage count on each code application
+
+---
+
+## Multi-Language Support
+
+### Implementation Pattern
+```typescript
+// Frontend
+import { useTranslations } from 'next-intl';
+
+const t = useTranslations('BookingPage');
+<h1>{t('title')}</h1>
+
+// Backend - Store multilingual content
+destination: {
+  name: { en: "Dubai", ar: "دبي" },
+  description: { en: "...", ar: "..." }
+}
+```
+
+### Translation Files
+Store in: `/public/locales/{lang}.json`
+```json
+{
+  "BookingPage": {
+    "title": "Book Your Trip",
+    "depositAmount": "Deposit: AED {amount}"
+  }
+}
+```
+
+---
+
+## Testing Requirements
+
+### Must Test
+1. Complete booking flow (deposit → dates → confirmation)
+2. Affiliate code validation
+3. Availability checking logic
+4. Email triggers
+5. Auth flows (login, token refresh)
+6. Payment webhooks
+
+### Testing Stack
+- **Frontend**: Jest + React Testing Library
+- **Backend**: Jest + Supertest
+- **E2E**: Playwright or Cypress
+- **Use Stripe Test Mode**: Never use real payment credentials
+
+---
+
+## Environment Variables
+
+### Required Variables
+```bash
+# Never commit these - always use .env files
+
+# Backend
+MONGODB_URI=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+SMTP_HOST=
+SMTP_USER=
+SMTP_PASS=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+FRONTEND_URL=
+
+# Frontend
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_STRIPE_PUBLIC_KEY=
+NEXT_PUBLIC_DEPOSIT_AMOUNT=199
+NEXT_PUBLIC_CURRENCY=AED
+```
+
+---
+
+## Performance Optimization
+
+### Always Implement
+1. **Database Indexes**: On userId, email, bookingReference, destinationId
+2. **Pagination**: Default 10 items per page, max 100
+3. **Image Optimization**: Use Next.js Image component
+4. **API Caching**: React Query with 5min staleTime
+5. **Lazy Loading**: For destination cards and images
+
+### Database Query Optimization
+```typescript
+// Good: Select only needed fields
+Booking.find({}).select('bookingReference status userId');
+
+// Good: Populate only needed fields
+Booking.findById(id).populate('userId', 'firstName email');
+
+// Bad: Loading everything
+Booking.find({}).populate('userId').populate('destinationId');
+```
+
+---
+
+## Error Handling Standards
+
+### Backend Error Handler
+```typescript
+class AppError extends Error {
+  statusCode: number;
+  isOperational: boolean;
+  
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+  }
+}
+
+// Usage
+throw new AppError('Booking not found', 404);
+```
+
+### Frontend Error Handling
+```typescript
+try {
+  await apiCall();
+} catch (error) {
+  if (axios.isAxiosError(error)) {
+    toast.error(error.response?.data?.message || 'An error occurred');
+  } else {
+    toast.error('Unexpected error');
+  }
+}
+```
+
+---
+
+## Git Workflow
+
+### Branch Naming
+- `feature/booking-flow`
+- `fix/payment-webhook`
+- `refactor/auth-middleware`
+
+### Commit Messages
+Follow conventional commits:
+```
+feat: add affiliate commission calculation
+fix: resolve booking date validation bug
+refactor: improve availability checking logic
+docs: update API documentation
+```
+
+---
+
+## MVP Scope Boundaries
+
+### IN SCOPE (Build This)
+✅ Deposit-based bookings (AED 199)
+✅ 1-year calendar unlock after deposit
+✅ Admin approval workflow
+✅ Affiliate referral system
+✅ Basic in-platform messaging
+✅ Automated transactional emails
+✅ Multi-language readiness (English + Arabic-ready)
+✅ Availability calendar management
+✅ User and admin dashboards
+✅ Export bookings/referrals (CSV/Excel)
+
+### OUT OF SCOPE (Don't Build)
+❌ Full payment processing (only deposits)
+❌ Live chat or real-time messaging
+❌ Advanced analytics/reporting
+❌ Social media integration
+❌ User reviews/ratings
+❌ Mobile app (native) - only responsive web + mobile-ready
+❌ Push notifications
+❌ Advanced CRM features
+
+---
+
+## Quick Reference
+
+### Default Values
+- Deposit Amount: AED 199
+- Currency: AED
+- Calendar Unlock Duration: 365 days
+- JWT Access Token Expiry: 15 minutes
+- JWT Refresh Token Expiry: 7 days
+- Pagination Default: 10 items per page
+
+### Status Enums
+- Booking: `pending_deposit | deposit_paid | dates_selected | confirmed | rejected | cancelled`
+- Payment: `pending | completed | failed | refunded`
+- Commission: `pending | approved | paid`
+
+### Role Types
+- `user` (default traveller)
+- `affiliate` (referral partner)
+- `admin` (platform admin)
+
+---
+
+## When in Doubt
+
+1. **Check documentation** in this artifact first
+2. **Follow TypeScript strict mode** - if it doesn't compile, don't commit
+3. **Validate everything** - frontend AND backend
+4. **Log important actions** - bookings, payments, commissions
+5. **Keep it simple** - this is MVP, avoid over-engineering
+6. **Ask before adding** - new features, libraries, or complex patterns
+
+---
+
+## Code Review Checklist
+
+Before submitting code, verify:
+- [ ] TypeScript compiles without errors
+- [ ] All inputs are validated
+- [ ] Error handling implemented
+- [ ] No sensitive data in logs
+- [ ] Environment variables used (no hardcoded secrets)
+- [ ] API responses follow standard format
+- [ ] Database queries use indexes
+- [ ] Frontend uses Tailwind (no custom CSS)
+- [ ] Components are properly typed
+- [ ] Tests pass (if applicable)
+
+---
+
