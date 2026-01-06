@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { Booking, Destination, Availability, AffiliateCode } from '../models';
+import { Booking, Destination, Availability, AffiliateCode, User } from '../models';
 import { successResponse, createdResponse, getPaginationMeta } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest, BookingFilters } from '../types/custom';
@@ -9,6 +9,7 @@ import {
   notifyBookingConfirmed,
   notifyBookingRejected,
   notifyAdminDatesSelected,
+  notifyUserDatesSelected,
 } from '../services/notificationService';
 import { generateBookingsReport, convertToCSV } from '../services/reportService';
 import env from '../config/environment';
@@ -52,6 +53,15 @@ export const createBooking = async (
       affiliateId = affiliate.affiliateId.toString();
     }
 
+    // Get user to check for referral discount
+    const user = await User.findById(userId);
+    let depositAmount = destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT;
+    
+    // Apply referral discount if user has one
+    if (user?.discountAmount) {
+      depositAmount = Math.max(0, depositAmount - user.discountAmount);
+    }
+
     // Create booking
     const booking = await Booking.create({
       userId,
@@ -62,7 +72,7 @@ export const createBooking = async (
       affiliateId,
       status: 'pending_deposit',
       depositPayment: {
-        amount: destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT,
+        amount: depositAmount,
         currency: destination.currency || env.DEFAULT_CURRENCY,
         paymentStatus: 'pending',
       },
@@ -230,8 +240,9 @@ export const selectDates = async (
     booking.status = 'dates_selected';
     await booking.save();
 
-    // Notify admin
+    // Notify admin and user
     await notifyAdminDatesSelected(booking._id.toString());
+    await notifyUserDatesSelected(booking._id.toString());
 
     successResponse(res, 'Travel dates selected successfully. Awaiting confirmation.', {
       bookingReference: booking.bookingReference,
@@ -435,6 +446,74 @@ export const rejectBooking = async (
 };
 
 /**
+ * Update booking dates (Admin)
+ * PUT /api/v1/bookings/admin/:id/update-dates
+ */
+export const updateBookingDates = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate, isFlexible } = req.body;
+
+    const booking = await Booking.findById(id);
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400);
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Check availability for selected dates
+    const availabilityCheck = await Availability.find({
+      destinationId: booking.destinationId,
+      date: { $gte: start, $lte: end },
+      isBlocked: false,
+      $expr: { $gt: ['$availableSlots', '$bookedSlots'] },
+    });
+
+    // Calculate expected days
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (availabilityCheck.length < daysDiff) {
+      throw new AppError('Selected dates are not fully available. Please choose different dates.', 400);
+    }
+
+    // Update booking dates
+    booking.travelDates = {
+      startDate: start,
+      endDate: end,
+      isFlexible: isFlexible || false,
+    };
+
+    // If dates weren't selected before, update status
+    if (booking.status === 'deposit_paid') {
+      booking.status = 'dates_selected';
+    }
+
+    await booking.save();
+
+    // Notify user of date update
+    await notifyUserDatesSelected(booking._id.toString());
+
+    successResponse(res, 'Booking dates updated successfully', {
+      bookingReference: booking.bookingReference,
+      travelDates: booking.travelDates,
+      status: booking.status,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Add admin notes (Admin)
  * PUT /api/v1/bookings/admin/:id/notes
  */
@@ -500,7 +579,7 @@ export const exportBookings = async (
         'createdAt',
       ];
 
-      const csv = convertToCSV(reportData, headers);
+      const csv = convertToCSV(reportData as unknown as Record<string, unknown>[], headers);
 
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=bookings-report.csv');

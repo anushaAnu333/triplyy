@@ -50,7 +50,7 @@ export const affiliatesApi = {
     return response.data.data;
   },
 
-  validateCode: async (code: string): Promise<{ code: string; affiliateName: string; isValid: boolean }> => {
+  validateCode: async (code: string): Promise<{ code: string; affiliateName: string; isValid: boolean; canUseForReferral?: boolean; discountAmount?: number }> => {
     const response = await api.get(`/affiliates/validate/${code}`);
     return response.data.data;
   },

@@ -10,13 +10,20 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and language
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('accessToken');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Add Accept-Language header
+    const language = localStorage.getItem('language') || 'en';
+    if (config.headers) {
+      config.headers['Accept-Language'] = language;
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)

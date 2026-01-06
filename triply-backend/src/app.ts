@@ -9,6 +9,7 @@ import env from './config/environment';
 import routes from './routes';
 import errorHandler from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimiter';
+import { languageMiddleware } from './middleware/language';
 import logger from './utils/logger';
 
 // Initialize Express app
@@ -43,6 +44,9 @@ app.use(cookieParser());
 
 // Compression
 app.use(compression());
+
+// Language middleware
+app.use(languageMiddleware);
 
 // Rate limiting
 app.use(`/api/${env.API_VERSION}`, apiLimiter);

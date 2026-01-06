@@ -11,6 +11,7 @@ export interface RegisterData {
   firstName: string;
   lastName: string;
   phoneNumber?: string;
+  referralCode?: string;
 }
 
 export interface User {

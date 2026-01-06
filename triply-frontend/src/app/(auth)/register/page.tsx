@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Gift, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ const registerSchema = z.object({
     .regex(/[a-zA-Z]/, 'Password must contain at least one letter'),
   confirmPassword: z.string(),
   phoneNumber: z.string().optional(),
+  referralCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -33,17 +35,74 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [showReferralSection, setShowReferralSection] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidatingReferral, setIsValidatingReferral] = useState(false);
+  const [referralDiscount, setReferralDiscount] = useState<number | null>(null);
   const { register: registerUser } = useAuth();
   const { toast } = useToast();
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
+
+  const referralCode = watch('referralCode');
+
+  // Validate referral code when user enters it
+  const validateReferralCode = async (code: string) => {
+    if (!code || code.length < 3) {
+      setReferralDiscount(null);
+      return;
+    }
+
+    setIsValidatingReferral(true);
+    try {
+      const { affiliatesApi } = await import('@/lib/api/affiliates');
+      const result = await affiliatesApi.validateCode(code.toUpperCase());
+      if (result.isValid && result.canUseForReferral) {
+        const discount = result.discountAmount || 0;
+        setReferralDiscount(discount);
+        toast({
+          title: 'Referral code valid!',
+          description: `You'll receive AED ${discount.toFixed(0)} discount on your first booking.`,
+        });
+      } else if (result.isValid && !result.canUseForReferral) {
+        setReferralDiscount(null);
+        toast({
+          title: 'Code cannot be used for signup',
+          description: 'This code is only valid for bookings, not signup.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      setReferralDiscount(null);
+      toast({
+        title: 'Invalid referral code',
+        description: 'Please check your code and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsValidatingReferral(false);
+    }
+  };
+
+  // Watch referral code changes
+  React.useEffect(() => {
+    if (referralCode) {
+      const timeoutId = setTimeout(() => {
+        validateReferralCode(referralCode);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setReferralDiscount(null);
+    }
+  }, [referralCode]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
@@ -54,10 +113,13 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
         phoneNumber: data.phoneNumber,
+        referralCode: data.referralCode?.toUpperCase(),
       });
       toast({
         title: 'Registration successful!',
-        description: 'Please check your email to verify your account.',
+        description: referralDiscount 
+          ? `Please check your email to verify your account. You'll receive AED ${referralDiscount.toFixed(0)} discount on your first booking!`
+          : 'Please check your email to verify your account.',
       });
     } catch (error: any) {
       toast({
@@ -71,7 +133,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 pt-24">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="font-display text-3xl">Create Account</CardTitle>
@@ -162,6 +224,46 @@ export default function RegisterPage() {
               />
               {errors.confirmPassword && (
                 <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+              )}
+            </div>
+
+            {/* Referral Code Section */}
+            <div className="space-y-2 pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setShowReferralSection(!showReferralSection)}
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <Gift className="w-4 h-4" />
+                Have a referral code?
+              </button>
+              
+              {showReferralSection && (
+                <div className="space-y-2">
+                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+                  <div className="relative">
+                    <Input
+                      id="referralCode"
+                      placeholder="Enter referral code"
+                      {...register('referralCode')}
+                      className={referralDiscount ? 'border-green-500' : ''}
+                    />
+                    {isValidatingReferral && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                    {referralDiscount && !isValidatingReferral && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                    )}
+                  </div>
+                  {referralDiscount && (
+                    <p className="text-sm text-green-600 font-medium">
+                      ✓ Valid code! You'll receive AED {referralDiscount.toFixed(0)} discount on your first booking.
+                    </p>
+                  )}
+                  {errors.referralCode && (
+                    <p className="text-sm text-destructive">{errors.referralCode.message}</p>
+                  )}
+                </div>
               )}
             </div>
           </CardContent>

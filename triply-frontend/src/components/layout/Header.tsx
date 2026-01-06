@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
+import { LanguageSelector } from '@/components/common/LanguageSelector';
 import { cn } from '@/lib/utils';
 
 const navigation = [
@@ -34,6 +35,13 @@ export function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Hide header on admin and affiliate pages (they have their own navigation)
+  const isAdminPage = pathname?.startsWith('/admin');
+  const isAffiliatePage = pathname?.startsWith('/affiliate');
+  if (isAdminPage || isAffiliatePage) {
+    return null;
+  }
 
   const isHomePage = pathname === '/';
   const headerBg = isScrolled || !isHomePage
@@ -85,6 +93,7 @@ export function Header() {
 
           {/* Right Side */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSelector />
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -179,7 +188,13 @@ export function Header() {
                 </Link>
               ))}
               
-              <div className="pt-4 border-t space-y-2">
+              <div className="pt-4 border-t">
+                <div className="px-4 pb-2">
+                  <LanguageSelector />
+                </div>
+              </div>
+              
+              <div className="pt-2 border-t space-y-2">
                 {isAuthenticated ? (
                   <>
                     <Link

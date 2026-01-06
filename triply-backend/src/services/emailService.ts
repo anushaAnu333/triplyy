@@ -264,6 +264,86 @@ export const sendBookingRejection = async (
 };
 
 /**
+ * Send date selection confirmation to user
+ */
+export const sendDateSelectionConfirmation = async (
+  userId: string,
+  bookingReference: string,
+  destinationName: string,
+  startDate: Date,
+  endDate: Date
+): Promise<boolean> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for date selection confirmation: ${userId}`);
+    return false;
+  }
+
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(date);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .highlight { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4facfe; }
+        .button { display: inline-block; background: #4facfe; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Travel Dates Selected!</h1>
+        </div>
+        <div class="content">
+          <p>Dear ${user.firstName},</p>
+          <p>Great! You've selected your travel dates. We've received your request and will confirm it shortly.</p>
+          
+          <div class="highlight">
+            <p><strong>Booking Reference:</strong> ${bookingReference}</p>
+            <p><strong>Destination:</strong> ${destinationName}</p>
+            <p><strong>Check-in:</strong> ${formatDate(startDate)}</p>
+            <p><strong>Check-out:</strong> ${formatDate(endDate)}</p>
+          </div>
+          
+          <p>Our team is reviewing your booking and will send you a confirmation email once it's approved.</p>
+          
+          <a href="${env.FRONTEND_URL}/bookings" class="button">View Booking</a>
+          
+          <p style="margin-top: 20px; font-size: 12px; color: #666;">
+            If you have any questions, please don't hesitate to contact us.
+          </p>
+          
+          <div class="footer">
+            <p>TRIPLY - Your Travel Partner</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `Travel Dates Selected - ${bookingReference}`,
+    html,
+    userId,
+    emailType: 'dates_selected',
+  });
+};
+
+/**
  * Send email verification link
  */
 export const sendEmailVerification = async (
@@ -383,6 +463,154 @@ export const sendPasswordReset = async (
     html,
     userId,
     emailType: 'password_reset',
+  });
+};
+
+/**
+ * Send calendar expiry reminder email
+ */
+export const sendCalendarExpiryReminder = async (
+  userId: string,
+  bookingReference: string,
+  destinationName: string,
+  expiryDate: Date
+): Promise<boolean> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for calendar expiry reminder: ${userId}`);
+    return false;
+  }
+
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(date);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .highlight { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f5576c; }
+        .warning { background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107; }
+        .button { display: inline-block; background: #f5576c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>⏰ Calendar Access Expiring Soon</h1>
+        </div>
+        <div class="content">
+          <p>Dear ${user.firstName},</p>
+          <p>This is a friendly reminder that your calendar access for booking travel dates is expiring soon.</p>
+          
+          <div class="warning">
+            <p><strong>⚠️ Important:</strong> Your calendar access expires on ${formatDate(expiryDate)}</p>
+            <p>You have <strong>30 days</strong> remaining to select your travel dates.</p>
+          </div>
+          
+          <div class="highlight">
+            <p><strong>Booking Reference:</strong> ${bookingReference}</p>
+            <p><strong>Destination:</strong> ${destinationName}</p>
+            <p><strong>Expiry Date:</strong> ${formatDate(expiryDate)}</p>
+          </div>
+          
+          <p>Don't miss out! Select your preferred travel dates now to secure your booking.</p>
+          
+          <a href="${env.FRONTEND_URL}/bookings" class="button">Select Travel Dates</a>
+          
+          <p style="margin-top: 20px; font-size: 12px; color: #666;">
+            If you have any questions or need assistance, please contact our support team.
+          </p>
+          
+          <div class="footer">
+            <p>TRIPLY - Your Travel Partner</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `⏰ Calendar Access Expiring Soon - ${bookingReference}`,
+    html,
+    userId,
+    emailType: 'calendar_expiring',
+  });
+};
+
+/**
+ * Send invitation email
+ */
+export const sendInvitationEmail = async (
+  email: string,
+  role: 'admin' | 'affiliate',
+  token: string,
+  invitedBy: string
+): Promise<boolean> => {
+  const inviter = await User.findById(invitedBy);
+  const invitationUrl = `${env.FRONTEND_URL}/register?invitation=${token}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .highlight { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+        .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>You're Invited to Join TRIPLY!</h1>
+        </div>
+        <div class="content">
+          <p>Hello,</p>
+          <p>You have been invited by ${inviter?.firstName || 'an administrator'} to join TRIPLY as a <strong>${role}</strong>.</p>
+          
+          <div class="highlight">
+            <p><strong>What's next?</strong></p>
+            <p>Click the button below to accept this invitation and create your account. This invitation will expire in 7 days.</p>
+          </div>
+          
+          <a href="${invitationUrl}" class="button">Accept Invitation</a>
+          
+          <p style="margin-top: 20px; font-size: 12px; color: #666;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            ${invitationUrl}
+          </p>
+          
+          <div class="footer">
+            <p>TRIPLY - Your Travel Partner</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Invitation to Join TRIPLY as ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+    html,
+    emailType: 'email_verification', // Using existing type for now
   });
 };
 

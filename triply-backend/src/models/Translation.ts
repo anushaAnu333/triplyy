@@ -39,7 +39,7 @@ const translationSchema = new Schema<ITranslation>(
 );
 
 // Indexes
-translationSchema.index({ key: 1 });
+// Note: key index is automatically created by unique: true
 translationSchema.index({ category: 1 });
 
 const Translation: Model<ITranslation> = mongoose.model<ITranslation>(

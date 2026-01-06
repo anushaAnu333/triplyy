@@ -12,6 +12,10 @@ export interface IAffiliateCode extends Document {
   isActive: boolean;
   usageCount: number;
   totalEarnings: number;
+  canShareReferral: boolean; // Only selected users can share referral codes
+  discountPercentage?: number; // Discount percentage for new users (e.g., 10 for 10%)
+  discountAmount?: number; // Fixed discount amount (if not percentage)
+  referralCount: number; // Number of successful referrals
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +64,24 @@ const affiliateCodeSchema = new Schema<IAffiliateCode>(
       default: 0,
       min: [0, 'Total earnings cannot be negative'],
     },
+    canShareReferral: {
+      type: Boolean,
+      default: false, // Only admin can enable this
+    },
+    discountPercentage: {
+      type: Number,
+      min: [0, 'Discount percentage cannot be negative'],
+      max: [100, 'Discount percentage cannot exceed 100%'],
+    },
+    discountAmount: {
+      type: Number,
+      min: [0, 'Discount amount cannot be negative'],
+    },
+    referralCount: {
+      type: Number,
+      default: 0,
+      min: [0, 'Referral count cannot be negative'],
+    },
   },
   {
     timestamps: true,
@@ -67,7 +89,7 @@ const affiliateCodeSchema = new Schema<IAffiliateCode>(
 );
 
 // Indexes
-affiliateCodeSchema.index({ code: 1 });
+// Note: code index is automatically created by unique: true
 affiliateCodeSchema.index({ affiliateId: 1 });
 affiliateCodeSchema.index({ isActive: 1 });
 

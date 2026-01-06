@@ -139,7 +139,7 @@ const bookingSchema = new Schema<IBooking>(
 );
 
 // Indexes
-bookingSchema.index({ bookingReference: 1 });
+// Note: bookingReference index is automatically created by unique: true
 bookingSchema.index({ userId: 1 });
 bookingSchema.index({ destinationId: 1 });
 bookingSchema.index({ status: 1 });

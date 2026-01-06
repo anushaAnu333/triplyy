@@ -101,7 +101,7 @@ const destinationSchema = new Schema<IDestination>(
 );
 
 // Indexes
-destinationSchema.index({ slug: 1 });
+// Note: slug index is automatically created by unique: true
 destinationSchema.index({ country: 1 });
 destinationSchema.index({ isActive: 1 });
 

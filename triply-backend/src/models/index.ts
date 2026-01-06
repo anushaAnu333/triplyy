@@ -8,4 +8,5 @@ export { default as Commission, ICommission, CommissionStatus } from './Commissi
 export { default as Message, IMessage } from './Message';
 export { default as EmailLog, IEmailLog, EmailType, EmailStatus } from './EmailLog';
 export { default as Translation, ITranslation } from './Translation';
+export { default as Invitation, IInvitation } from './Invitation';
 

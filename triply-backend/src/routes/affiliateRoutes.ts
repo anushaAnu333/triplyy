@@ -10,6 +10,7 @@ import {
   getAllAffiliates,
   updateCommissionRate,
   toggleAffiliateStatus,
+  enableReferralSharing,
   exportAffiliateReport,
 } from '../controllers/affiliateController';
 import { authenticate } from '../middleware/auth';
@@ -83,6 +84,13 @@ router.put(
   authenticate as any,
   adminOnly as any,
   (req, res, next) => toggleAffiliateStatus(req as AuthRequest, res, next)
+);
+
+router.put(
+  '/admin/:id/enable-referral',
+  authenticate as any,
+  adminOnly as any,
+  (req, res, next) => enableReferralSharing(req as AuthRequest, res, next)
 );
 
 router.get(

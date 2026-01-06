@@ -12,6 +12,9 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   profileImage?: string;
   lastLogin?: Date;
+  referredBy?: mongoose.Types.ObjectId; // User who referred this user
+  referralCode?: string; // Referral code used during signup
+  discountAmount?: number; // Discount received from referral
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,14 +66,24 @@ const userSchema = new Schema<IUser>(
     lastLogin: {
       type: Date,
     },
+    referredBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    referralCode: {
+      type: String,
+    },
+    discountAmount: {
+      type: Number,
+      min: [0, 'Discount amount cannot be negative'],
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Index for faster email lookups
-userSchema.index({ email: 1 });
+// Note: email index is automatically created by unique: true
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

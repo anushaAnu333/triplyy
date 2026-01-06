@@ -24,6 +24,7 @@ export interface Booking {
   specialRequests?: string;
   affiliateCode?: string;
   calendarUnlockedUntil?: string;
+  rejectionReason?: string;
   createdAt: string;
   updatedAt: string;
 }

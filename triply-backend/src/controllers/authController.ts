@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models';
+import { User, AffiliateCode } from '../models';
 import { comparePassword } from '../utils/password';
 import {
   generateAccessToken,
@@ -26,12 +26,45 @@ export const register = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { email, password, firstName, lastName, phoneNumber } = req.body;
+    const { email, password, firstName, lastName, phoneNumber, referralCode } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       throw new AppError('Email already registered', 400);
+    }
+
+    let referredBy: string | undefined;
+    let discountAmount: number | undefined;
+    let usedReferralCode: string | undefined;
+
+    // Validate and process referral code if provided
+    if (referralCode) {
+      const referral = await AffiliateCode.findOne({
+        code: referralCode.toUpperCase(),
+        isActive: true,
+        canShareReferral: true, // Only codes that can be shared
+      });
+
+      if (!referral) {
+        throw new AppError('Invalid or inactive referral code', 400);
+      }
+
+      referredBy = referral.affiliateId.toString();
+      usedReferralCode = referral.code;
+
+      // Calculate discount
+      if (referral.discountPercentage) {
+        // Apply percentage discount to default deposit amount
+        const defaultDeposit = 199; // AED 199
+        discountAmount = (defaultDeposit * referral.discountPercentage) / 100;
+      } else if (referral.discountAmount) {
+        discountAmount = referral.discountAmount;
+      }
+
+      // Increment referral count
+      referral.referralCount += 1;
+      await referral.save();
     }
 
     // Create new user
@@ -42,6 +75,9 @@ export const register = async (
       lastName,
       phoneNumber,
       role: 'user',
+      referredBy: referredBy ? referredBy : undefined,
+      referralCode: usedReferralCode,
+      discountAmount,
     });
 
     // Generate email verification token
@@ -58,6 +94,8 @@ export const register = async (
     createdResponse(res, 'Registration successful. Please check your email to verify your account.', {
       userId: user._id,
       email: user.email,
+      discountApplied: discountAmount ? true : false,
+      discountAmount: discountAmount || 0,
     });
   } catch (error) {
     next(error);

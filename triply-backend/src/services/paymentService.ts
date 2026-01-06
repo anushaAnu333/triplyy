@@ -1,6 +1,6 @@
 import stripe from '../config/payment';
 import env from '../config/environment';
-import { Booking, AffiliateCode, Commission } from '../models';
+import { Booking, AffiliateCode, Commission, User } from '../models';
 import logger from '../utils/logger';
 import AppError from '../utils/AppError';
 
@@ -79,6 +79,12 @@ export const handlePaymentSuccess = async (
       await processAffiliateCommission(booking);
     }
 
+    // Process referral commission if user was referred
+    const user = await User.findById(booking.userId);
+    if (user?.referredBy && user?.referralCode) {
+      await processReferralCommission(booking, user);
+    }
+
     logger.info(`Payment successful for booking ${booking.bookingReference}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Payment processing failed';
@@ -130,6 +136,76 @@ const processAffiliateCommission = async (booking: typeof Booking.prototype): Pr
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Commission processing failed';
     logger.error(`Failed to process affiliate commission: ${message}`);
+    // Don't throw - commission failure shouldn't fail the booking
+  }
+};
+
+/**
+ * Process referral commission on successful payment
+ */
+const processReferralCommission = async (
+  booking: typeof Booking.prototype,
+  user: typeof User.prototype
+): Promise<void> => {
+  try {
+    // Find the referral code used during signup
+    const referralCode = await AffiliateCode.findOne({
+      code: user.referralCode,
+      canShareReferral: true,
+      isActive: true,
+    });
+
+    if (!referralCode) {
+      logger.warn(`Referral code ${user.referralCode} not found or not eligible for referral sharing`);
+      return;
+    }
+
+    // Get the referrer (the user who shared the code)
+    const referrer = await User.findById(user.referredBy);
+    if (!referrer) {
+      logger.warn(`Referrer ${user.referredBy} not found`);
+      return;
+    }
+
+    // Calculate commission based on original deposit amount (before discount)
+    const originalDepositAmount = booking.depositPayment.amount + (user.discountAmount || 0);
+    
+    // Calculate commission based on referral code settings
+    let commissionAmount: number;
+    if (referralCode.discountAmount) {
+      // Fixed commission based on discount amount
+      commissionAmount = referralCode.discountAmount * 0.5; // 50% of discount as commission
+    } else if (referralCode.discountPercentage) {
+      // Percentage commission based on original deposit
+      commissionAmount = (originalDepositAmount * referralCode.discountPercentage) / 100;
+    } else {
+      // Default: 10% of original deposit
+      commissionAmount = (originalDepositAmount * 10) / 100;
+    }
+
+    // Create commission record for the referrer
+    await Commission.create({
+      affiliateId: referralCode.affiliateId,
+      bookingId: booking._id,
+      affiliateCode: user.referralCode,
+      bookingAmount: originalDepositAmount,
+      commissionAmount,
+      commissionRate: referralCode.discountPercentage || 10,
+      status: 'pending',
+      metadata: {
+        type: 'referral',
+        referredUserId: user._id.toString(),
+      },
+    });
+
+    // Update referral code stats
+    referralCode.referralCount += 1;
+    await referralCode.save();
+
+    logger.info(`Referral commission ${commissionAmount} created for referrer ${referrer.email}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Referral commission processing failed';
+    logger.error(`Failed to process referral commission: ${message}`);
     // Don't throw - commission failure shouldn't fail the booking
   }
 };

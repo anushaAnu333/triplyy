@@ -197,7 +197,7 @@ export default function AdminDestinationsPage() {
               </Card>
             ))}
           </div>
-        ) : data?.length === 0 ? (
+        ) : data?.data?.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center">
               <MapPin className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -213,7 +213,7 @@ export default function AdminDestinationsPage() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data?.map((destination: Destination) => (
+            {data?.data?.map((destination: Destination) => (
               <Card key={destination._id} className="overflow-hidden">
                 <div className="relative h-48 bg-muted">
                   {destination.thumbnailImage ? (

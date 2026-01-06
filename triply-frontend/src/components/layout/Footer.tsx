@@ -1,3 +1,6 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Facebook, Twitter, Instagram, Youtube, Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,6 +40,15 @@ const socialLinks = [
 ];
 
 export function Footer() {
+  const pathname = usePathname();
+  
+  // Hide footer on admin and affiliate pages (they have their own navigation)
+  const isAdminPage = pathname?.startsWith('/admin');
+  const isAffiliatePage = pathname?.startsWith('/affiliate');
+  if (isAdminPage || isAffiliatePage) {
+    return null;
+  }
+
   return (
     <footer className="bg-black text-white">
       {/* Newsletter Section */}

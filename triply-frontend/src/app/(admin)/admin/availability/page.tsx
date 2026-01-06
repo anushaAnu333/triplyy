@@ -145,7 +145,7 @@ export default function AdminAvailabilityPage() {
               <SelectValue placeholder="Select a destination" />
             </SelectTrigger>
             <SelectContent>
-              {destinations?.map((dest: any) => (
+              {destinations?.data?.map((dest: any) => (
                 <SelectItem key={dest._id} value={dest._id}>
                   {dest.name.en}
                 </SelectItem>

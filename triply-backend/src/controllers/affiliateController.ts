@@ -205,10 +205,25 @@ export const validateCode = async (
 
     const affiliate = affiliateCode.affiliateId as unknown as { firstName: string };
 
-    successResponse(res, 'Valid affiliate code', {
+    // Check if code can be used for referrals (signup)
+    const canUseForReferral = affiliateCode.canShareReferral || false;
+    
+    // Calculate discount if applicable
+    let discountAmount = 0;
+    if (canUseForReferral) {
+      if (affiliateCode.discountPercentage) {
+        discountAmount = (199 * affiliateCode.discountPercentage) / 100; // Percentage of AED 199
+      } else if (affiliateCode.discountAmount) {
+        discountAmount = affiliateCode.discountAmount;
+      }
+    }
+
+    successResponse(res, 'Valid code', {
       code: affiliateCode.code,
       affiliateName: affiliate.firstName,
       isValid: true,
+      canUseForReferral,
+      discountAmount: canUseForReferral ? discountAmount : 0,
     });
   } catch (error) {
     next(error);
@@ -360,12 +375,22 @@ export const updateCommissionRate = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { commissionRate, commissionType, fixedAmount } = req.body;
+    const { 
+      commissionRate, 
+      commissionType, 
+      fixedAmount,
+      canShareReferral,
+      discountPercentage,
+      discountAmount,
+    } = req.body;
 
     const updateData: Record<string, unknown> = {};
     if (commissionRate !== undefined) updateData.commissionRate = commissionRate;
     if (commissionType) updateData.commissionType = commissionType;
     if (fixedAmount !== undefined) updateData.fixedAmount = fixedAmount;
+    if (canShareReferral !== undefined) updateData.canShareReferral = canShareReferral;
+    if (discountPercentage !== undefined) updateData.discountPercentage = discountPercentage;
+    if (discountAmount !== undefined) updateData.discountAmount = discountAmount;
 
     const affiliateCode = await AffiliateCode.findByIdAndUpdate(id, updateData, {
       new: true,
@@ -416,6 +441,43 @@ export const toggleAffiliateStatus = async (
 };
 
 /**
+ * Enable/disable referral sharing for affiliate code (Admin)
+ * PUT /api/v1/affiliates/admin/:id/enable-referral
+ */
+export const enableReferralSharing = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { canShareReferral, discountPercentage, discountAmount } = req.body;
+
+    const updateData: Record<string, unknown> = {};
+    if (canShareReferral !== undefined) updateData.canShareReferral = canShareReferral;
+    if (discountPercentage !== undefined) updateData.discountPercentage = discountPercentage;
+    if (discountAmount !== undefined) updateData.discountAmount = discountAmount;
+
+    const affiliateCode = await AffiliateCode.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!affiliateCode) {
+      throw new AppError('Affiliate code not found', 404);
+    }
+
+    successResponse(
+      res,
+      `Referral sharing ${canShareReferral ? 'enabled' : 'disabled'}`,
+      affiliateCode
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Export affiliate report (Admin)
  * GET /api/v1/affiliates/admin/export
  */
@@ -446,7 +508,7 @@ export const exportAffiliateReport = async (
         'createdAt',
       ];
 
-      const csv = convertToCSV(reportData, headers);
+      const csv = convertToCSV(reportData as unknown as Record<string, unknown>[], headers);
 
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=affiliate-report.csv');

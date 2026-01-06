@@ -8,6 +8,7 @@ import {
   getAllBookings,
   confirmBooking,
   rejectBooking,
+  updateBookingDates,
   addAdminNotes,
   exportBookings,
 } from '../controllers/bookingController';
@@ -78,6 +79,14 @@ router.put(
   adminOnly as any,
   validate(rejectBookingValidator),
   (req, res, next) => rejectBooking(req as AuthRequest, res, next)
+);
+
+router.put(
+  '/admin/:id/update-dates',
+  authenticate as any,
+  adminOnly as any,
+  validate(selectDatesValidator),
+  (req, res, next) => updateBookingDates(req as AuthRequest, res, next)
 );
 
 router.put(

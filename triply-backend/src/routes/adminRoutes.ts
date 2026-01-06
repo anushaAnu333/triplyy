@@ -6,6 +6,12 @@ import {
   getPopularDestinations,
   getUserGrowth,
 } from '../controllers/adminController';
+import {
+  createInvitation,
+  getAllInvitations,
+  resendInvitation,
+  cancelInvitation,
+} from '../controllers/invitationController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly } from '../middleware/roleCheck';
 import { AuthRequest } from '../types/custom';
@@ -33,6 +39,23 @@ router.get('/popular-destinations', (req, res, next) =>
 
 router.get('/user-growth', (req, res, next) =>
   getUserGrowth(req as AuthRequest, res, next)
+);
+
+// Invitation routes
+router.post('/invitations', (req, res, next) =>
+  createInvitation(req as AuthRequest, res, next)
+);
+
+router.get('/invitations', (req, res, next) =>
+  getAllInvitations(req as AuthRequest, res, next)
+);
+
+router.post('/invitations/:id/resend', (req, res, next) =>
+  resendInvitation(req as AuthRequest, res, next)
+);
+
+router.delete('/invitations/:id', (req, res, next) =>
+  cancelInvitation(req as AuthRequest, res, next)
 );
 
 export default router;

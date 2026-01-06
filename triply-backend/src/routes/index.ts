@@ -7,6 +7,7 @@ import affiliateRoutes from './affiliateRoutes';
 import paymentRoutes from './paymentRoutes';
 import messageRoutes from './messageRoutes';
 import adminRoutes from './adminRoutes';
+import translationRoutes from './translationRoutes';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use('/affiliates', affiliateRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/messages', messageRoutes);
 router.use('/admin', adminRoutes);
+router.use('/translations', translationRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

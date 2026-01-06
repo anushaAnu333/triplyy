@@ -3,6 +3,7 @@ import {
   sendDepositConfirmation,
   sendBookingConfirmation,
   sendBookingRejection,
+  sendDateSelectionConfirmation,
 } from './emailService';
 import logger from '../utils/logger';
 
@@ -111,6 +112,36 @@ export const notifyAdminDatesSelected = async (bookingId: string): Promise<void>
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`Failed to notify admin: ${message}`);
+  }
+};
+
+/**
+ * Notify user of date selection confirmation
+ */
+export const notifyUserDatesSelected = async (bookingId: string): Promise<void> => {
+  try {
+    const booking = await Booking.findById(bookingId).populate('destinationId');
+    if (!booking) {
+      logger.error(`Booking not found for user date selection notification: ${bookingId}`);
+      return;
+    }
+
+    if (!booking.travelDates.startDate || !booking.travelDates.endDate) {
+      logger.error(`Travel dates not set for booking: ${bookingId}`);
+      return;
+    }
+
+    const destination = booking.destinationId as unknown as { name: { en: string } };
+    await sendDateSelectionConfirmation(
+      booking.userId.toString(),
+      booking.bookingReference,
+      destination.name.en,
+      booking.travelDates.startDate,
+      booking.travelDates.endDate
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Failed to send date selection confirmation to user: ${message}`);
   }
 };
 

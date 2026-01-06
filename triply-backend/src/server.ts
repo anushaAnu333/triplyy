@@ -2,6 +2,7 @@ import app from './app';
 import connectDatabase from './config/database';
 import env from './config/environment';
 import logger from './utils/logger';
+import { initializeCronJobs } from './services/cronService';
 
 const PORT = env.PORT;
 
@@ -10,6 +11,9 @@ const startServer = async (): Promise<void> => {
     // Connect to database
     await connectDatabase();
     logger.info('Database connected successfully');
+
+    // Initialize cron jobs
+    initializeCronJobs();
 
     // Start server
     app.listen(PORT, () => {

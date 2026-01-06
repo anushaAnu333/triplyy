@@ -47,7 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.login(credentials);
     localStorage.setItem('accessToken', response.accessToken);
     setUser(response.user);
-    router.push('/dashboard');
+    
+    // Redirect based on user role
+    if (response.user.role === 'admin') {
+      router.push('/admin/dashboard');
+    } else if (response.user.role === 'affiliate') {
+      router.push('/affiliate/dashboard');
+    } else {
+      router.push('/');
+    }
   };
 
   const register = async (data: RegisterData) => {
