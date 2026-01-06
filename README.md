@@ -1,6 +1,6 @@
 # TRIPLY - Travel Booking Platform
 
-A modern travel booking platform built with Next.js 14+ and Express.js.
+A modern travel booking platform built with Next.js 14+ and Express.js
 
 ## Features
 - Deposit-based booking system (AED 199)
