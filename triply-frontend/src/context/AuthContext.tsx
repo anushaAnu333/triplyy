@@ -12,6 +12,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('accessToken', response.accessToken);
     setUser(response.user);
     
+    // Check for redirect URL in localStorage (set by pages that need redirect)
+    const redirectUrl = localStorage.getItem('redirectAfterLogin');
+    if (redirectUrl) {
+      localStorage.removeItem('redirectAfterLogin');
+      router.push(redirectUrl);
+      return;
+    }
+    
     // Redirect based on user role
     if (response.user.role === 'admin') {
       router.push('/admin/dashboard');
@@ -80,6 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updatedUser);
   };
 
+  const refreshUser = async () => {
+    await fetchUser();
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -90,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         updateUser,
+        refreshUser,
       }}
     >
       {children}

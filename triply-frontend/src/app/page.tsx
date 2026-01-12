@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { destinationsApi, Destination } from '@/lib/api/destinations';
 import { formatCurrency } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 // Hook for intersection observer animations
 function useInView(threshold = 0.1) {
@@ -118,6 +119,7 @@ const steps = [
 export default function HomePage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [heroImageLoaded, setHeroImageLoaded] = useState(false);
+  const { user, isAuthenticated } = useAuth();
   
   const statsRef = useInView(0.3);
   const galleryRef = useInView(0.1);
@@ -135,6 +137,9 @@ export default function HomePage() {
     queryKey: ['featured-destinations'],
     queryFn: () => destinationsApi.getAll({ limit: 6 }),
   });
+
+  // Check if user is already an affiliate
+  const isAffiliate = isAuthenticated && user?.role === 'affiliate';
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -741,43 +746,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-32 relative overflow-hidden">
-        <div className="absolute inset-0">
-          <Image 
-            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920" 
-            alt="Beach" 
-            fill 
-            className="object-cover" 
-          />
-          <div className="absolute inset-0 bg-brand-orange/90" />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-orange to-orange-600/90" />
-        </div>
-        
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl mx-auto text-center text-white">
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-              Ready for Your Next
-              <br />
-              <span className="text-white/90">Adventure?</span>
-            </h2>
-            <p className="text-xl md:text-2xl text-white/80 mb-12 max-w-xl mx-auto">
-              Start with just AED 199 and unlock a year of travel possibilities.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="group text-lg px-10 py-7 rounded-full bg-white text-brand-orange hover:bg-white/90 shadow-2xl font-bold transition-all duration-300 hover:scale-105">
-                <Link href="/destinations">
-                  Explore Destinations
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="text-lg px-10 py-7 rounded-full border-2 border-white/40 text-white hover:bg-white/10 font-medium transition-all duration-300 hover:scale-105">
-                <Link href="/register">Create Free Account</Link>
-              </Button>
+      {/* Final CTA - Only show if user is not already an affiliate */}
+      {!isAffiliate && (
+        <section className="py-32 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <Image 
+              src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920" 
+              alt="Beach" 
+              fill 
+              className="object-cover" 
+            />
+            <div className="absolute inset-0 bg-brand-orange/90" />
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-orange to-orange-600/90" />
+          </div>
+          
+          <div className="container mx-auto px-4 relative z-10">
+            <div className="max-w-3xl mx-auto text-center text-white">
+              <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+                Become a Referral Partner
+                <br />
+                <span className="text-white/90">Earn Commissions</span>
+              </h2>
+              <p className="text-xl md:text-2xl text-white/80 mb-12 max-w-xl mx-auto">
+                Share your unique referral code and earn commissions on every booking. Join our affiliate program today!
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button asChild size="lg" className="group text-lg px-10 py-7 rounded-full bg-white text-brand-orange hover:bg-white/90 shadow-2xl font-bold transition-all duration-300 hover:scale-105">
+                  <Link href="/referral-partner">
+                    Become a Referral Partner
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="text-lg px-10 py-7 rounded-full border-2 border-white/40 text-white hover:bg-white/10 font-medium transition-all duration-300 hover:scale-105">
+                  <Link href="/register">Create Free Account</Link>
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

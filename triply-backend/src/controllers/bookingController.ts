@@ -12,6 +12,7 @@ import {
   notifyUserDatesSelected,
 } from '../services/notificationService';
 import { generateBookingsReport, convertToCSV } from '../services/reportService';
+import { generateBookingReference } from '../utils/generateReference';
 import env from '../config/environment';
 
 /**
@@ -62,10 +63,19 @@ export const createBooking = async (
       depositAmount = Math.max(0, depositAmount - user.discountAmount);
     }
 
+    // Validate deposit amount (must be at least 0.50 AED)
+    if (depositAmount < 0.5) {
+      throw new AppError('Deposit amount is too small after discount. Minimum amount is 0.50 AED.', 400);
+    }
+
+    // Generate booking reference
+    const bookingReference = generateBookingReference();
+
     // Create booking
     const booking = await Booking.create({
       userId,
       destinationId,
+      bookingReference,
       numberOfTravellers: numberOfTravellers || 1,
       specialRequests,
       affiliateCode: affiliateCode?.toUpperCase(),

@@ -1,14 +1,11 @@
-import Stripe from 'stripe';
-import env from './environment';
-
 /**
- * Stripe payment gateway configuration
- * Used for processing AED 199 deposit payments
+ * Payment Gateway Configuration
+ * Using dummy payment gateway for all transactions
+ * This can be replaced with a real payment gateway in the future
  */
-const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
-  typescript: true,
-});
 
-export default stripe;
+// This file is kept for future payment gateway integration
+// Currently, all payments are processed through the dummy payment gateway
+
+export default null;
 

@@ -6,12 +6,18 @@ import {
   generateCode,
   validateCode,
   getAffiliateBookings,
+  getReferralBookings,
   getCommissions,
   getAllAffiliates,
   updateCommissionRate,
   toggleAffiliateStatus,
   enableReferralSharing,
   exportAffiliateReport,
+  getMyReferral,
+  getMyReferrals,
+  getMyReferralCommissions,
+  requestWithdrawal,
+  getMyWithdrawals,
 } from '../controllers/affiliateController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly, affiliateOnly, adminOrAffiliate } from '../middleware/roleCheck';
@@ -21,6 +27,25 @@ const router = Router();
 
 // Public routes
 router.get('/validate/:code', validateCode);
+
+// User referral routes (accessible to all authenticated users)
+router.get(
+  '/my-referral',
+  authenticate as any,
+  (req, res, next) => getMyReferral(req as AuthRequest, res, next)
+);
+
+router.get(
+  '/my-referrals',
+  authenticate as any,
+  (req, res, next) => getMyReferrals(req as AuthRequest, res, next)
+);
+
+router.get(
+  '/my-referral-commissions',
+  authenticate as any,
+  (req, res, next) => getMyReferralCommissions(req as AuthRequest, res, next)
+);
 
 // Affiliate routes
 router.post(
@@ -58,10 +83,32 @@ router.get(
 );
 
 router.get(
+  '/referral-bookings',
+  authenticate as any,
+  affiliateOnly as any,
+  (req, res, next) => getReferralBookings(req as AuthRequest, res, next)
+);
+
+router.get(
   '/commissions',
   authenticate as any,
   affiliateOnly as any,
   (req, res, next) => getCommissions(req as AuthRequest, res, next)
+);
+
+// Withdrawal routes (Affiliate)
+router.post(
+  '/withdrawals',
+  authenticate as any,
+  affiliateOnly as any,
+  (req, res, next) => requestWithdrawal(req as AuthRequest, res, next)
+);
+
+router.get(
+  '/withdrawals',
+  authenticate as any,
+  affiliateOnly as any,
+  (req, res, next) => getMyWithdrawals(req as AuthRequest, res, next)
 );
 
 // Admin routes

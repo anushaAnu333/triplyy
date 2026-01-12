@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,8 +26,11 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
+  const redirectUrl = searchParams.get('redirect');
+  const action = searchParams.get('action');
 
   const {
     register,
@@ -40,6 +43,13 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
+      // Store redirect URL in localStorage if provided
+      if (redirectUrl) {
+        localStorage.setItem('redirectAfterLogin', redirectUrl);
+      } else if (action === 'become-affiliate') {
+        localStorage.setItem('redirectAfterLogin', '/referral-partner');
+      }
+      
       await login(data);
       toast({
         title: 'Welcome back!',

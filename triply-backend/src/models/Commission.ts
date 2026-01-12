@@ -13,6 +13,10 @@ export interface ICommission extends Document {
   status: CommissionStatus;
   paidAt?: Date;
   paymentReference?: string;
+  metadata?: {
+    type?: string; // 'referral' or 'affiliate'
+    referredUserId?: string; // For referral commissions
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,6 +62,15 @@ const commissionSchema = new Schema<ICommission>(
     },
     paymentReference: {
       type: String,
+    },
+    metadata: {
+      type: {
+        type: String,
+        enum: ['referral', 'affiliate'],
+      },
+      referredUserId: {
+        type: String,
+      },
     },
   },
   {

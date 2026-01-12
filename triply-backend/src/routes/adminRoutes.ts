@@ -12,6 +12,16 @@ import {
   resendInvitation,
   cancelInvitation,
 } from '../controllers/invitationController';
+import {
+  getAllAffiliates,
+  getAllCommissions,
+  approveCommission,
+  markCommissionAsPaid,
+  updateCommissionStatus,
+  getAllWithdrawals,
+  processWithdrawal,
+  rejectWithdrawal,
+} from '../controllers/affiliateController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly } from '../middleware/roleCheck';
 import { AuthRequest } from '../types/custom';
@@ -39,6 +49,41 @@ router.get('/popular-destinations', (req, res, next) =>
 
 router.get('/user-growth', (req, res, next) =>
   getUserGrowth(req as AuthRequest, res, next)
+);
+
+// Affiliate routes
+router.get('/affiliates', (req, res, next) =>
+  getAllAffiliates(req as AuthRequest, res, next)
+);
+
+// Commission routes
+router.get('/commissions/:status?', (req, res, next) =>
+  getAllCommissions(req as AuthRequest, res, next)
+);
+
+router.put('/commissions/:id/approve', (req, res, next) =>
+  approveCommission(req as AuthRequest, res, next)
+);
+
+router.put('/commissions/:id/pay', (req, res, next) =>
+  markCommissionAsPaid(req as AuthRequest, res, next)
+);
+
+router.put('/commissions/:id/status', (req, res, next) =>
+  updateCommissionStatus(req as AuthRequest, res, next)
+);
+
+// Withdrawal routes
+router.get('/withdrawals', (req, res, next) =>
+  getAllWithdrawals(req as AuthRequest, res, next)
+);
+
+router.put('/withdrawals/:id/process', (req, res, next) =>
+  processWithdrawal(req as AuthRequest, res, next)
+);
+
+router.put('/withdrawals/:id/reject', (req, res, next) =>
+  rejectWithdrawal(req as AuthRequest, res, next)
 );
 
 // Invitation routes

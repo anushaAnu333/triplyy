@@ -144,4 +144,3 @@ export const notifyUserDatesSelected = async (bookingId: string): Promise<void> 
     logger.error(`Failed to send date selection confirmation to user: ${message}`);
   }
 };
-

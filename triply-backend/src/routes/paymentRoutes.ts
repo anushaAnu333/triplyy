@@ -4,6 +4,7 @@ import {
   confirmPayment,
   handleWebhook,
   getPaymentDetails,
+  simulatePayment,
 } from '../controllers/paymentController';
 import { authenticate } from '../middleware/auth';
 import { paymentLimiter } from '../middleware/rateLimiter';
@@ -26,6 +27,12 @@ router.post(
   '/confirm',
   authenticate as any,
   (req, res, next) => confirmPayment(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/simulate',
+  authenticate as any,
+  (req, res, next) => simulatePayment(req as AuthRequest, res, next)
 );
 
 router.get(

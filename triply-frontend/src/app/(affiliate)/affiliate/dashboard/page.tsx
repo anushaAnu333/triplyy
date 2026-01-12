@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   DollarSign, TrendingUp, Users, Copy, 
-  ArrowRight, Calendar, Check 
+  ArrowRight, Calendar, Check, Loader2, Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,17 +15,36 @@ import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { affiliatesApi } from '@/lib/api/affiliates';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { WithdrawalModal } from '@/components/affiliate/WithdrawalModal';
 
 export default function AffiliateDashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ['affiliate-dashboard'],
     queryFn: () => affiliatesApi.getDashboard(),
     enabled: isAuthenticated && user?.role === 'affiliate',
   });
+
+  // Get approved commissions to calculate available balance
+  const { data: approvedCommissions } = useQuery({
+    queryKey: ['affiliate-commissions-approved'],
+    queryFn: () => affiliatesApi.getCommissions(1, 100, 'approved'),
+    enabled: isAuthenticated && user?.role === 'affiliate',
+  });
+
+  // Calculate available balance (only approved commissions)
+  // Use approvedEarnings from dashboard stats if available, otherwise calculate from commissions
+  const availableBalance = dashboard?.stats?.approvedEarnings || 
+    (approvedCommissions?.data?.reduce(
+      (sum: number, commission: any) => sum + commission.commissionAmount,
+      0
+    ) || 0);
 
   useEffect(() => {
     if (!authLoading) {
@@ -43,6 +62,27 @@ export default function AffiliateDashboardPage() {
       title: 'Code Copied!',
       description: `${code} has been copied to clipboard`,
     });
+  };
+
+  const handleGenerateCode = async () => {
+    setIsGenerating(true);
+    try {
+      const result = await affiliatesApi.generateCode();
+      toast({
+        title: 'Code Generated!',
+        description: `New affiliate code: ${result.code}`,
+      });
+      // Refresh the dashboard data
+      queryClient.invalidateQueries({ queryKey: ['affiliate-dashboard'] });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to Generate Code',
+        description: error.response?.data?.message || 'Unable to generate new code',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   if (authLoading || !isAuthenticated || user?.role !== 'affiliate') {
@@ -82,12 +122,13 @@ export default function AffiliateDashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white/80 text-sm">Pending Earnings</p>
+                  <p className="text-white/80 text-sm">Available for Withdrawal</p>
                   <p className="text-3xl font-bold">
-                    {formatCurrency(dashboard?.stats.pendingEarnings || 0)}
+                    {formatCurrency(availableBalance)}
                   </p>
+                  <p className="text-white/60 text-xs mt-1">Approved commissions</p>
                 </div>
-                <TrendingUp className="w-12 h-12 text-white/30" />
+                <Wallet className="w-12 h-12 text-white/30" />
               </div>
             </CardContent>
           </Card>
@@ -127,8 +168,20 @@ export default function AffiliateDashboardPage() {
                 <CardTitle>Your Affiliate Codes</CardTitle>
                 <CardDescription>Share these codes with your referrals</CardDescription>
               </div>
-              <Button variant="outline" size="sm">
-                Generate New Code
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleGenerateCode}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Generate New Code'
+                )}
               </Button>
             </CardHeader>
             <CardContent>
@@ -177,8 +230,48 @@ export default function AffiliateDashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Withdrawal Section */}
+          <Card className="lg:col-span-1 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="w-5 h-5" />
+                Withdraw Earnings
+              </CardTitle>
+              <CardDescription>
+                Request withdrawal of your approved commissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-muted-foreground">Available Balance</span>
+                  <span className="text-2xl font-bold text-primary">
+                    {formatCurrency(availableBalance)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Only approved commissions can be withdrawn
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowWithdrawalModal(true)}
+                className="w-full"
+                disabled={availableBalance === 0}
+                size="lg"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Request Withdrawal
+              </Button>
+              {availableBalance === 0 && (
+                <p className="text-xs text-center text-muted-foreground">
+                  No approved commissions available for withdrawal
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Quick Links */}
-          <Card>
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>Quick Links</CardTitle>
             </CardHeader>
@@ -251,6 +344,13 @@ export default function AffiliateDashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Withdrawal Modal */}
+        <WithdrawalModal
+          isOpen={showWithdrawalModal}
+          onClose={() => setShowWithdrawalModal(false)}
+          availableBalance={availableBalance}
+        />
       </div>
     </div>
   );

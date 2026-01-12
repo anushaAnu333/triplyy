@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, User, ChevronDown, LogOut, LayoutDashboard, Calendar, Settings } from 'lucide-react';
+import { Menu, X, User, ChevronDown, LogOut, LayoutDashboard, Calendar, Settings, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -135,6 +135,14 @@ export function Header() {
                       Settings
                     </Link>
                   </DropdownMenuItem>
+                  {user?.role === 'user' && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/refer" className="cursor-pointer">
+                        <Gift className="w-4 h-4 mr-2" />
+                        Refer & Earn
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600 cursor-pointer">
                     <LogOut className="w-4 h-4 mr-2" />
@@ -211,6 +219,15 @@ export function Header() {
                     >
                       My Bookings
                     </Link>
+                    {user?.role === 'user' && (
+                      <Link
+                        href="/refer"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block px-4 py-3 rounded-lg text-black font-medium hover:bg-gray-100"
+                      >
+                        Refer & Earn
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         logout();

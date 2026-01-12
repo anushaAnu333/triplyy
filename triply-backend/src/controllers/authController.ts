@@ -15,6 +15,7 @@ import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
 import { sendEmailVerification, sendPasswordReset } from '../services/emailService';
 import logger from '../utils/logger';
+import { generateAffiliateCode } from '../utils/generateReference';
 
 /**
  * Register a new user
@@ -79,6 +80,24 @@ export const register = async (
       referralCode: usedReferralCode,
       discountAmount,
     });
+
+    // Automatically create a referral code for the new user (so they can refer others)
+    try {
+      const userReferralCode = generateAffiliateCode(user.firstName.substring(0, 3));
+      await AffiliateCode.create({
+        affiliateId: user._id,
+        code: userReferralCode,
+        commissionRate: 10, // Default 10% commission
+        commissionType: 'percentage',
+        canShareReferral: true, // Regular users can share their referral code
+        discountPercentage: 10, // Default 10% discount for referred users
+        isActive: true,
+      });
+      logger.info(`Referral code ${userReferralCode} created for user ${user._id}`);
+    } catch (error) {
+      // Log error but don't fail registration if referral code creation fails
+      logger.error(`Failed to create referral code for user ${user._id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     // Generate email verification token
     const verificationToken = generateEmailToken(user._id.toString());

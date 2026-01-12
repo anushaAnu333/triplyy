@@ -23,6 +23,7 @@ export interface AffiliateDashboard {
     totalBookings: number;
     totalEarnings: number;
     pendingEarnings: number;
+    approvedEarnings?: number;
     paidEarnings: number;
   };
   codes: AffiliateCode[];
@@ -77,6 +78,62 @@ export const affiliatesApi = {
     if (status) params.append('status', status);
 
     const response = await api.get(`/affiliates/commissions?${params.toString()}`);
+    return response.data;
+  },
+
+  // User referral endpoints (for regular users)
+  getMyReferral: async (): Promise<{
+    code: string;
+    discountPercentage: number;
+    stats: {
+      totalReferrals: number;
+      totalEarnings: number;
+      pendingEarnings: number;
+      paidEarnings: number;
+    };
+  }> => {
+    const response = await api.get('/affiliates/my-referral');
+    return response.data.data;
+  },
+
+  getMyReferrals: async (page = 1, limit = 10): Promise<any> => {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+
+    const response = await api.get(`/affiliates/my-referrals?${params.toString()}`);
+    return response.data;
+  },
+
+  getMyReferralCommissions: async (page = 1, limit = 10, status?: string): Promise<any> => {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (status) params.append('status', status);
+
+    const response = await api.get(`/affiliates/my-referral-commissions?${params.toString()}`);
+    return response.data;
+  },
+
+  // Withdrawal endpoints
+  requestWithdrawal: async (data: {
+    amount: number;
+    currency?: string;
+    paymentMethod: 'bank_transfer' | 'paypal' | 'stripe' | 'other';
+    paymentDetails: Record<string, string>;
+    commissionIds?: string[];
+  }): Promise<any> => {
+    const response = await api.post('/affiliates/withdrawals', data);
+    return response.data.data;
+  },
+
+  getMyWithdrawals: async (page = 1, limit = 10, status?: string): Promise<any> => {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (status) params.append('status', status);
+
+    const response = await api.get(`/affiliates/withdrawals?${params.toString()}`);
     return response.data;
   },
 };

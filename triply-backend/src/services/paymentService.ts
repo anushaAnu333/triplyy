@@ -1,8 +1,8 @@
-import stripe from '../config/payment';
 import env from '../config/environment';
 import { Booking, AffiliateCode, Commission, User } from '../models';
 import logger from '../utils/logger';
 import AppError from '../utils/AppError';
+import { generateTransactionReference } from '../utils/generateReference';
 
 interface CreatePaymentIntentParams {
   bookingId: string;
@@ -16,36 +16,102 @@ interface PaymentIntentResult {
   paymentIntentId: string;
 }
 
+// Store dummy payment intents in memory (for development/testing)
+const dummyPaymentIntents = new Map<string, {
+  bookingId: string;
+  amount: number;
+  currency: string;
+  status: 'requires_payment_method' | 'succeeded' | 'canceled';
+  createdAt: Date;
+}>();
+
 /**
- * Create a Stripe payment intent for deposit
+ * Payment Gateway - Dummy payment implementation
+ */
+const createDummyPaymentIntent = async (
+  params: CreatePaymentIntentParams
+): Promise<PaymentIntentResult> => {
+  const { bookingId, amount, currency = 'aed' } = params;
+  
+  const paymentIntentId = `pi_dummy_${generateTransactionReference()}`;
+  const clientSecret = `dummy_secret_${paymentIntentId}`;
+
+  // Store payment intent in memory
+  dummyPaymentIntents.set(paymentIntentId, {
+    bookingId,
+    amount,
+    currency,
+    status: 'requires_payment_method',
+    createdAt: new Date(),
+  });
+
+  logger.info(`[DUMMY PAYMENT] Payment intent created: ${paymentIntentId} for booking ${bookingId} (Amount: ${amount} ${currency.toUpperCase()})`);
+  logger.warn('[DUMMY PAYMENT] Using dummy payment gateway. Payments will be simulated.');
+
+  return {
+    clientSecret,
+    paymentIntentId,
+  };
+};
+
+/**
+ * Simulate payment success for dummy gateway
+ */
+export const simulateDummyPaymentSuccess = async (paymentIntentId: string): Promise<boolean> => {
+  const paymentIntent = dummyPaymentIntents.get(paymentIntentId);
+  if (!paymentIntent) {
+    logger.warn(`[DUMMY PAYMENT] Payment intent not found: ${paymentIntentId}`);
+    return false;
+  }
+
+  paymentIntent.status = 'succeeded';
+  logger.info(`[DUMMY PAYMENT] Payment succeeded: ${paymentIntentId} for booking ${paymentIntent.bookingId}`);
+  
+  // Process payment success
+  await handlePaymentSuccess(paymentIntentId, paymentIntent.bookingId);
+  return true;
+};
+
+/**
+ * Simulate payment failure for dummy gateway
+ */
+export const simulateDummyPaymentFailure = async (paymentIntentId: string, errorMessage?: string): Promise<boolean> => {
+  const paymentIntent = dummyPaymentIntents.get(paymentIntentId);
+  if (!paymentIntent) {
+    logger.warn(`[DUMMY PAYMENT] Payment intent not found: ${paymentIntentId}`);
+    return false;
+  }
+
+  paymentIntent.status = 'canceled';
+  logger.warn(`[DUMMY PAYMENT] Payment failed: ${paymentIntentId} for booking ${paymentIntent.bookingId} - ${errorMessage || 'Payment declined'}`);
+  
+  // Process payment failure
+  await handlePaymentFailure(paymentIntentId, paymentIntent.bookingId, errorMessage);
+  return true;
+};
+
+/**
+ * Create a payment intent for deposit
  */
 export const createPaymentIntent = async (
   params: CreatePaymentIntentParams
 ): Promise<PaymentIntentResult> => {
-  const { bookingId, amount, currency = 'aed', metadata = {} } = params;
+  const { bookingId, amount, currency = 'aed' } = params;
 
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents/fils
-      currency: currency.toLowerCase(),
-      metadata: {
-        bookingId,
-        ...metadata,
-      },
-      automatic_payment_methods: {
-        enabled: true,
-      },
-    });
-
-    return {
-      clientSecret: paymentIntent.client_secret || '',
-      paymentIntentId: paymentIntent.id,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Payment creation failed';
-    logger.error(`Failed to create payment intent: ${message}`);
-    throw new AppError('Failed to create payment. Please try again.', 500);
+  // Validate amount
+  if (!amount || amount <= 0) {
+    logger.error(`Invalid amount for payment intent: ${amount}`);
+    throw new AppError('Invalid payment amount. Amount must be greater than 0.', 400);
   }
+
+  // Validate minimum amount (at least 0.50 AED)
+  if (amount < 0.5) {
+    logger.error(`Amount too small: ${amount}`);
+    throw new AppError('Payment amount is too small. Minimum amount is 0.50 AED.', 400);
+  }
+
+  // Use dummy payment gateway
+  return createDummyPaymentIntent(params);
 };
 
 /**
@@ -253,25 +319,12 @@ export const processRefund = async (
       throw new AppError('No payment found to refund', 400);
     }
 
-    const refund = await stripe.refunds.create({
-      payment_intent: booking.depositPayment.transactionId,
-      reason: 'requested_by_customer',
-      metadata: {
-        bookingId: bookingId.toString(),
-        reason: reason || 'Booking cancelled',
-      },
-    });
-
-    if (refund.status === 'succeeded') {
-      booking.depositPayment.paymentStatus = 'refunded';
-      booking.status = 'cancelled';
-      await booking.save();
-
-      logger.info(`Refund processed for booking ${booking.bookingReference}`);
-      return true;
-    }
-
-    return false;
+    // Process refund for dummy payments
+    logger.info(`[DUMMY PAYMENT] Refund processed for booking ${booking.bookingReference}`);
+    booking.depositPayment.paymentStatus = 'refunded';
+    booking.status = 'cancelled';
+    await booking.save();
+    return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Refund processing failed';
     logger.error(`Failed to process refund: ${message}`);
@@ -280,17 +333,14 @@ export const processRefund = async (
 };
 
 /**
- * Verify Stripe webhook signature
+ * Verify webhook signature (for future payment gateway integration)
  */
 export const verifyWebhookSignature = (
   payload: string | Buffer,
   signature: string
 ): boolean => {
-  try {
-    stripe.webhooks.constructEvent(payload, signature, env.STRIPE_WEBHOOK_SECRET);
-    return true;
-  } catch {
-    return false;
-  }
+  // For dummy payment gateway, always return true
+  logger.info('[DUMMY PAYMENT] Webhook signature verification skipped (dummy mode)');
+  return true;
 };
 

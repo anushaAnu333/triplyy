@@ -54,6 +54,19 @@ export default function RegisterPage() {
 
   const referralCode = watch('referralCode');
 
+  // Check for referral code in URL
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const refCode = params.get('ref');
+      if (refCode) {
+        setValue('referralCode', refCode.toUpperCase());
+        setShowReferralSection(true);
+        validateReferralCode(refCode.toUpperCase());
+      }
+    }
+  }, [setValue]);
+
   // Validate referral code when user enters it
   const validateReferralCode = async (code: string) => {
     if (!code || code.length < 3) {

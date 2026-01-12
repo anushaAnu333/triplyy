@@ -8,10 +8,12 @@ import {
   handlePaymentSuccess,
   handlePaymentFailure,
   verifyWebhookSignature,
+  simulateDummyPaymentSuccess,
+  simulateDummyPaymentFailure,
 } from '../services/paymentService';
+import env from '../config/environment';
 import { notifyDepositPaid } from '../services/notificationService';
 import logger from '../utils/logger';
-import stripe from '../config/payment';
 
 /**
  * Create payment intent
@@ -78,19 +80,18 @@ export const confirmPayment = async (
       throw new AppError('Booking not found', 404);
     }
 
-    // Verify payment with Stripe
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-    if (paymentIntent.status === 'succeeded') {
-      await handlePaymentSuccess(paymentIntentId, bookingId);
+    // Process payment using dummy payment gateway
+    logger.info(`[DUMMY PAYMENT] Simulating payment success for ${paymentIntentId}`);
+    const success = await simulateDummyPaymentSuccess(paymentIntentId);
+    
+    if (success) {
       await notifyDepositPaid(bookingId);
-
       successResponse(res, 'Payment confirmed successfully', {
         bookingReference: booking.bookingReference,
         status: 'deposit_paid',
       });
     } else {
-      throw new AppError('Payment has not been completed', 400);
+      throw new AppError('Failed to process payment', 400);
     }
   } catch (error) {
     next(error);
@@ -98,7 +99,7 @@ export const confirmPayment = async (
 };
 
 /**
- * Handle Stripe webhook
+ * Handle payment webhook (for future payment gateway integration)
  * POST /api/v1/payments/webhook
  */
 export const handleWebhook = async (
@@ -107,49 +108,57 @@ export const handleWebhook = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const signature = req.headers['stripe-signature'] as string;
+    // For dummy payment gateway, webhooks are not used
+    // This endpoint is kept for future payment gateway integration
+    logger.info('[DUMMY PAYMENT] Webhook received but not processed (dummy mode)');
+    res.status(200).json({ received: true, message: 'Webhook not processed in dummy mode' });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (!signature) {
-      throw new AppError('No signature provided', 400);
+/**
+ * Simulate payment (for testing)
+ * POST /api/v1/payments/simulate
+ */
+export const simulatePayment = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { paymentIntentId, bookingId, success = true } = req.body;
+    const userId = req.user.userId;
+
+    // Verify booking ownership
+    const booking = await Booking.findOne({ _id: bookingId, userId });
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
     }
 
-    // Verify signature
-    if (!verifyWebhookSignature(req.body, signature)) {
-      throw new AppError('Invalid signature', 400);
-    }
-
-    const event = JSON.parse(req.body.toString());
-
-    logger.info(`Received webhook event: ${event.type}`);
-
-    switch (event.type) {
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object;
-        const bookingId = paymentIntent.metadata.bookingId;
-
-        if (bookingId) {
-          await handlePaymentSuccess(paymentIntent.id, bookingId);
-          await notifyDepositPaid(bookingId);
-        }
-        break;
+    if (success) {
+      const result = await simulateDummyPaymentSuccess(paymentIntentId);
+      if (result) {
+        await notifyDepositPaid(bookingId);
+        successResponse(res, 'Payment simulated successfully', {
+          bookingReference: booking.bookingReference,
+          status: 'deposit_paid',
+        });
+      } else {
+        throw new AppError('Failed to simulate payment', 400);
       }
-
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object;
-        const bookingId = paymentIntent.metadata.bookingId;
-        const errorMessage = paymentIntent.last_payment_error?.message;
-
-        if (bookingId) {
-          await handlePaymentFailure(paymentIntent.id, bookingId, errorMessage);
-        }
-        break;
+    } else {
+      const result = await simulateDummyPaymentFailure(paymentIntentId, 'Payment simulation failed');
+      if (result) {
+        successResponse(res, 'Payment failure simulated', {
+          bookingReference: booking.bookingReference,
+          status: booking.status,
+        });
+      } else {
+        throw new AppError('Failed to simulate payment failure', 400);
       }
-
-      default:
-        logger.info(`Unhandled event type: ${event.type}`);
     }
-
-    res.status(200).json({ received: true });
   } catch (error) {
     next(error);
   }

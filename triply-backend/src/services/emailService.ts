@@ -613,4 +613,3 @@ export const sendInvitationEmail = async (
     emailType: 'email_verification', // Using existing type for now
   });
 };
-
