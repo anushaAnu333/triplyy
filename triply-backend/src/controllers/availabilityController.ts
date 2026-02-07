@@ -202,3 +202,125 @@ export const bulkUpdateAvailability = async (
   }
 };
 
+/**
+ * Bulk update slots for specific dates (Admin)
+ * PUT /api/v1/availability/:destinationId/bulk
+ */
+export const bulkUpdateSlots = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { destinationId } = req.params;
+    const { dates, totalSlots } = req.body;
+
+    if (!Array.isArray(dates) || dates.length === 0) {
+      throw new AppError('Dates array is required', 400);
+    }
+
+    if (!totalSlots || totalSlots < 0) {
+      throw new AppError('Total slots must be a positive number', 400);
+    }
+
+    // Verify destination exists
+    const destination = await Destination.findById(destinationId);
+    if (!destination) {
+      throw new AppError('Destination not found', 404);
+    }
+
+    // Bulk upsert operations
+    const bulkOps = dates.map((dateStr: string) => {
+      const date = new Date(dateStr);
+      date.setHours(0, 0, 0, 0);
+      
+      return {
+        updateOne: {
+          filter: { destinationId, date },
+          update: {
+            $set: {
+              destinationId,
+              date,
+              availableSlots: totalSlots,
+            },
+            $setOnInsert: {
+              bookedSlots: 0,
+              isBlocked: false,
+            },
+          },
+          upsert: true,
+        },
+      };
+    });
+
+    await Availability.bulkWrite(bulkOps);
+
+    successResponse(res, `Updated slots for ${dates.length} date(s) successfully`, {
+      destinationId,
+      datesUpdated: dates.length,
+      totalSlots,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Bulk block/unblock dates (Admin)
+ * PUT /api/v1/availability/:destinationId/block
+ */
+export const bulkBlockDates = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { destinationId } = req.params;
+    const { dates, isBlocked } = req.body;
+
+    if (!Array.isArray(dates) || dates.length === 0) {
+      throw new AppError('Dates array is required', 400);
+    }
+
+    // Verify destination exists
+    const destination = await Destination.findById(destinationId);
+    if (!destination) {
+      throw new AppError('Destination not found', 404);
+    }
+
+    // Bulk upsert operations
+    const bulkOps = dates.map((dateStr: string) => {
+      const date = new Date(dateStr);
+      date.setHours(0, 0, 0, 0);
+      
+      return {
+        updateOne: {
+          filter: { destinationId, date },
+          update: {
+            $set: {
+              destinationId,
+              date,
+              isBlocked: isBlocked || false,
+            },
+            $setOnInsert: {
+              availableSlots: 999,
+              bookedSlots: 0,
+            },
+          },
+          upsert: true,
+        },
+      };
+    });
+
+    await Availability.bulkWrite(bulkOps);
+
+    successResponse(res, `${isBlocked ? 'Blocked' : 'Unblocked'} ${dates.length} date(s) successfully`, {
+      destinationId,
+      datesUpdated: dates.length,
+      isBlocked,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

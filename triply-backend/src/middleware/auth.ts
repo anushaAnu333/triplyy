@@ -29,7 +29,7 @@ export const authenticate = (
     req.user = {
       userId: decoded.userId,
       email: decoded.email,
-      role: decoded.role as 'user' | 'admin' | 'affiliate',
+      role: decoded.role as 'user' | 'admin' | 'affiliate' | 'merchant',
     };
 
     next();
@@ -61,7 +61,7 @@ export const optionalAuth = (
         req.user = {
           userId: decoded.userId,
           email: decoded.email,
-          role: decoded.role as 'user' | 'admin' | 'affiliate',
+          role: decoded.role as 'user' | 'admin' | 'affiliate' | 'merchant',
         };
       }
     }

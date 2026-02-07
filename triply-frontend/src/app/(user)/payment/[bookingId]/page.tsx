@@ -52,6 +52,9 @@ export default function PaymentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string>('');
   const [depositAmount, setDepositAmount] = useState<number>(0);
+  const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [activityAmount, setActivityAmount] = useState<number>(0);
+  const [hasActivities, setHasActivities] = useState<boolean>(false);
   const [currency, setCurrency] = useState<string>('AED');
 
   // Fetch booking details
@@ -77,16 +80,27 @@ export default function PaymentPage() {
           const data = JSON.parse(storedPaymentData);
           setPaymentIntentId(data.paymentIntentId || '');
           setDepositAmount(data.depositAmount || booking.depositPayment?.amount || 0);
+          setTotalAmount(data.totalAmount || data.depositAmount || booking.depositPayment?.amount || 0);
+          setActivityAmount(data.activityAmount || 0);
+          setHasActivities(data.hasActivities || false);
           setCurrency(data.currency || booking.depositPayment?.currency || 'AED');
         } catch (error) {
           console.error('Error parsing payment data:', error);
           // Fallback to booking data
-          setDepositAmount(booking.depositPayment?.amount || 0);
+          const deposit = booking.depositPayment?.amount || 0;
+          setDepositAmount(deposit);
+          setTotalAmount(deposit);
+          setActivityAmount(0);
+          setHasActivities(false);
           setCurrency(booking.depositPayment?.currency || 'AED');
         }
       } else {
         // Fallback to booking data
-        setDepositAmount(booking.depositPayment?.amount || 0);
+        const deposit = booking.depositPayment?.amount || 0;
+        setDepositAmount(deposit);
+        setTotalAmount(deposit);
+        setActivityAmount(0);
+        setHasActivities(!!(booking.linkedActivityBookings && booking.linkedActivityBookings.length > 0));
         setCurrency(booking.depositPayment?.currency || 'AED');
       }
     }
@@ -381,7 +395,7 @@ export default function PaymentPage() {
                   ) : (
                     <>
                       <Lock className="w-4 h-4 mr-2" />
-                      Pay {formatCurrency(depositAmount, currency)}
+                      Pay {formatCurrency(totalAmount || depositAmount, currency)}
                     </>
                   )}
                 </Button>
@@ -419,10 +433,22 @@ export default function PaymentPage() {
 
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Deposit Amount</span>
+                  <span className="text-muted-foreground">Destination Deposit</span>
                   <span className="font-semibold">
                     {formatCurrency(depositAmount, currency)}
                   </span>
+                </div>
+                {hasActivities && activityAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Activities</span>
+                    <span className="font-semibold">
+                      {formatCurrency(activityAmount, currency)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                  <span>Total</span>
+                  <span>{formatCurrency(totalAmount || depositAmount, currency)}</span>
                 </div>
               </div>
 

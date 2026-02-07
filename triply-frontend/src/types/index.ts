@@ -32,5 +32,5 @@ export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 
 export type CommissionStatus = 'pending' | 'approved' | 'paid';
 
-export type UserRole = 'user' | 'admin' | 'affiliate';
+export type UserRole = 'user' | 'admin' | 'affiliate' | 'merchant';
 

@@ -1,9 +1,11 @@
 import { Response, NextFunction } from 'express';
-import { Booking, Destination, Availability, AffiliateCode, User } from '../models';
+import mongoose from 'mongoose';
+import { Booking, Destination, Availability, AffiliateCode, User, ActivityBooking, Activity, ActivityAvailability } from '../models';
 import { successResponse, createdResponse, getPaginationMeta } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest, BookingFilters } from '../types/custom';
 import { createPaymentIntent } from '../services/paymentService';
+import logger from '../utils/logger';
 import {
   notifyDepositPaid,
   notifyBookingConfirmed,
@@ -25,7 +27,7 @@ export const createBooking = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { destinationId, numberOfTravellers, specialRequests, affiliateCode } = req.body;
+    const { destinationId, numberOfTravellers, specialRequests, affiliateCode, activities } = req.body;
     const userId = req.user.userId;
 
     // Verify destination exists
@@ -54,8 +56,11 @@ export const createBooking = async (
       affiliateId = affiliate.affiliateId.toString();
     }
 
-    // Get user to check for referral discount
+    // Get user to check for referral discount and use for activity bookings
     const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
     let depositAmount = destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT;
     
     // Apply referral discount if user has one
@@ -88,14 +93,95 @@ export const createBooking = async (
       },
     });
 
-    // Create payment intent
+    // Handle activity bookings if provided
+    const linkedActivityBookings: string[] = [];
+    let totalActivityAmount = 0;
+    const activityBookings = [];
+
+    if (activities && Array.isArray(activities) && activities.length > 0) {
+      for (const activityData of activities) {
+        const { activityId, selectedDate, numberOfParticipants, customerName, customerEmail, customerPhone, specialRequests: activitySpecialRequests } = activityData;
+
+        // Validate activity exists
+        const activity = await Activity.findOne({ _id: activityId, status: 'approved' })
+          .populate('merchantId');
+        
+        if (!activity) {
+          throw new AppError(`Activity ${activityId} not found or not approved`, 404);
+        }
+
+        const bookingDate = new Date(selectedDate);
+        bookingDate.setHours(0, 0, 0, 0);
+
+        // Find or create availability
+        let availability = await ActivityAvailability.findOne({
+          activityId: activityId,
+          date: bookingDate,
+        });
+
+        if (!availability) {
+          availability = await ActivityAvailability.create({
+            activityId: activityId,
+            date: bookingDate,
+            availableSlots: 999,
+            bookedSlots: 0,
+            isAvailable: true,
+          });
+        }
+
+        // Calculate price
+        const price = availability.price || activity.price;
+        const totalAmount = price * numberOfParticipants;
+        const triplyCommission = Math.round((totalAmount * 0.2) * 100) / 100;
+        const merchantAmount = Math.round((totalAmount * 0.8) * 100) / 100;
+
+        // Create activity booking
+        const activityBooking = await ActivityBooking.create({
+          userId,
+          activityId: activityId,
+          availabilityId: availability._id,
+          selectedDate: bookingDate,
+          numberOfParticipants,
+          customerName: customerName || `${user.firstName} ${user.lastName}`,
+          customerEmail: customerEmail || user.email,
+          customerPhone: customerPhone || user.phoneNumber,
+          specialRequests: activitySpecialRequests,
+          status: 'pending_payment',
+          linkedDestinationBookingId: booking._id,
+          isAddOn: true,
+          payment: {
+            amount: totalAmount,
+            currency: activity.currency,
+            triplyCommission,
+            merchantAmount,
+            paymentStatus: 'pending',
+            merchantPayoutStatus: 'pending',
+          },
+        });
+
+        linkedActivityBookings.push(activityBooking._id.toString());
+        totalActivityAmount += totalAmount;
+        activityBookings.push(activityBooking);
+      }
+
+      // Update booking with linked activities
+      booking.linkedActivityBookings = linkedActivityBookings.map(id => new mongoose.Types.ObjectId(id));
+      await booking.save();
+    }
+
+    // Calculate total amount (destination deposit + activities)
+    const totalAmount = depositAmount + totalActivityAmount;
+
+    // Create payment intent for combined amount
     const paymentIntent = await createPaymentIntent({
       bookingId: booking._id.toString(),
-      amount: booking.depositPayment.amount,
+      amount: totalAmount,
       currency: booking.depositPayment.currency,
       metadata: {
         bookingReference: booking.bookingReference,
         userId,
+        hasActivities: activities && activities.length > 0,
+        activityCount: activities?.length || 0,
       },
     });
 
@@ -106,11 +192,19 @@ export const createBooking = async (
         status: booking.status,
         depositAmount: booking.depositPayment.amount,
         currency: booking.depositPayment.currency,
+        totalAmount,
+        activityAmount: totalActivityAmount,
+        hasActivities: activities && activities.length > 0,
       },
       payment: {
         clientSecret: paymentIntent.clientSecret,
         paymentIntentId: paymentIntent.paymentIntentId,
       },
+      activities: activityBookings.map(ab => ({
+        id: ab._id,
+        bookingReference: ab.bookingReference,
+        amount: ab.payment.amount,
+      })),
     });
   } catch (error) {
     next(error);
@@ -181,7 +275,14 @@ export const getBookingById = async (
 
     const booking = await Booking.findOne(query)
       .populate('destinationId', 'name slug description images thumbnailImage country duration highlights inclusions exclusions')
-      .populate('userId', 'firstName lastName email phoneNumber');
+      .populate('userId', 'firstName lastName email phoneNumber')
+      .populate({
+        path: 'linkedActivityBookings',
+        populate: {
+          path: 'activityId',
+          select: 'title description location photos price currency',
+        },
+      });
 
     if (!booking) {
       throw new AppError('Booking not found', 404);
@@ -225,21 +326,53 @@ export const selectDates = async (
 
     // Check availability for selected dates
     const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
 
-    const availabilityCheck = await Availability.find({
+    // Get all availability records for the date range
+    const allAvailability = await Availability.find({
       destinationId: booking.destinationId,
       date: { $gte: start, $lte: end },
-      isBlocked: false,
-      $expr: { $gt: ['$availableSlots', '$bookedSlots'] },
     });
 
-    // Calculate expected days
-    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // Check for blocked dates or fully booked dates
+    const blockedDates: Date[] = [];
+    const fullyBookedDates: Date[] = [];
 
-    if (availabilityCheck.length < daysDiff) {
-      throw new AppError('Selected dates are not fully available. Please choose different dates.', 400);
+    allAvailability.forEach((avail) => {
+      if (avail.isBlocked) {
+        blockedDates.push(avail.date);
+      } else if (avail.bookedSlots >= avail.availableSlots) {
+        fullyBookedDates.push(avail.date);
+      }
+    });
+
+    // If flexible dates are allowed, check if dates within ±2 days are available
+    if (isFlexible && (blockedDates.length > 0 || fullyBookedDates.length > 0)) {
+      // For flexible dates, we allow the booking even if some dates are unavailable
+      // Admin can adjust dates during confirmation
+      logger.info(`[BOOKING] Flexible dates selected with some unavailable dates. Booking will proceed for admin review.`);
+    } else if (blockedDates.length > 0 || fullyBookedDates.length > 0) {
+      // If not flexible and there are blocked/fully booked dates, reject
+      const blockedCount = blockedDates.length;
+      const fullyBookedCount = fullyBookedDates.length;
+      
+      let errorMessage = 'Selected dates are not fully available. ';
+      if (blockedCount > 0 && fullyBookedCount > 0) {
+        errorMessage += `${blockedCount} date(s) are blocked and ${fullyBookedCount} date(s) are fully booked. `;
+      } else if (blockedCount > 0) {
+        errorMessage += `${blockedCount} date(s) are blocked. `;
+      } else {
+        errorMessage += `${fullyBookedCount} date(s) are fully booked. `;
+      }
+      errorMessage += 'Please choose different dates or enable flexible dates.';
+      
+      throw new AppError(errorMessage, 400);
     }
+
+    // If no availability records exist for the dates, that's okay - admin can set them later
+    // We only block if dates are explicitly blocked or fully booked
 
     // Update booking
     booking.travelDates = {

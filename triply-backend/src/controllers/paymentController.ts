@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Booking } from '../models';
+import { Booking, ActivityBooking, ActivityAvailability } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
@@ -201,3 +201,201 @@ export const getPaymentDetails = async (
   }
 };
 
+/**
+ * Create payment intent for activity booking
+ * POST /api/v1/payments/activity-booking/create-intent
+ */
+export const createActivityBookingPaymentIntent = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { bookingId } = req.body;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    logger.info(`[PAYMENT] Creating activity booking payment intent: bookingId=${bookingId}, userId=${userId}, role=${userRole}`);
+
+    // First, check if booking exists at all (without any filters)
+    let booking = await ActivityBooking.findById(bookingId)
+      .populate('activityId');
+    
+    if (!booking) {
+      logger.error(`[PAYMENT] Activity booking does not exist in database: bookingId=${bookingId}`);
+      throw new AppError('Activity booking not found', 404);
+    }
+
+    logger.info(`[PAYMENT] Booking found in database: ${booking.bookingReference}, userId=${booking.userId}, activityId=${booking.activityId}`);
+
+    // Check permissions
+    const bookingUserId = String(booking.userId);
+    const currentUserId = String(userId);
+    const isBookingOwner = bookingUserId === currentUserId;
+    
+    // For merchants: allow if they created the booking OR if they own the activity
+    // For regular users: only allow if they created the booking
+    if (userRole === 'merchant') {
+      if (isBookingOwner) {
+        logger.info(`[PAYMENT] Access granted: merchant ${userId} created the booking`);
+      } else {
+        // Check if merchant owns the activity
+        const activity = booking.activityId as any;
+        if (activity?.merchantId) {
+          const activityMerchantId = String(activity.merchantId);
+          const userMerchantId = String(userId);
+          
+          logger.info(`[PAYMENT] Merchant check: activityMerchantId=${activityMerchantId}, userMerchantId=${userMerchantId}`);
+          
+          if (activityMerchantId === userMerchantId) {
+            logger.info(`[PAYMENT] Access granted: merchant ${userId} owns the activity`);
+          } else {
+            logger.warn(`[PAYMENT] Access denied: merchant ${userId} does not own booking or activity for booking ${bookingId}`);
+            throw new AppError('Activity booking not found', 404);
+          }
+        } else {
+          logger.warn(`[PAYMENT] Activity has no merchantId for booking ${bookingId}`);
+          throw new AppError('Activity booking not found', 404);
+        }
+      }
+    } else {
+      // Regular users can only access their own bookings
+      if (!isBookingOwner) {
+        logger.warn(`[PAYMENT] Access denied: user ${userId} does not own booking ${bookingId} (booking userId: ${bookingUserId})`);
+        throw new AppError('Activity booking not found', 404);
+      }
+    }
+
+    logger.info(`[PAYMENT] Booking found: ${booking.bookingReference}, status: ${booking.status}`);
+
+    if (booking.status !== 'pending_payment') {
+      throw new AppError('Payment has already been processed for this booking', 400);
+    }
+
+    const paymentIntent = await createPaymentIntent({
+      bookingId: booking._id.toString(),
+      amount: booking.payment.amount,
+      currency: booking.payment.currency,
+      metadata: {
+        bookingReference: booking.bookingReference,
+        userId,
+        type: 'activity_booking',
+      },
+    });
+
+    successResponse(res, 'Payment intent created', {
+      clientSecret: paymentIntent.clientSecret,
+      paymentIntentId: paymentIntent.paymentIntentId,
+      amount: booking.payment.amount,
+      currency: booking.payment.currency,
+      triplyCommission: booking.payment.triplyCommission,
+      merchantAmount: booking.payment.merchantAmount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Confirm activity booking payment
+ * POST /api/v1/payments/activity-booking/confirm
+ */
+export const confirmActivityBookingPayment = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { paymentIntentId, bookingId } = req.body;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    logger.info(`[PAYMENT] Confirming activity booking payment: bookingId=${bookingId}, userId=${userId}, role=${userRole}`);
+
+    // First, check if booking exists at all (without any filters)
+    let booking = await ActivityBooking.findById(bookingId)
+      .populate('activityId')
+      .populate('availabilityId');
+    
+    if (!booking) {
+      logger.error(`[PAYMENT] Activity booking does not exist in database: bookingId=${bookingId}`);
+      throw new AppError('Activity booking not found', 404);
+    }
+
+    logger.info(`[PAYMENT] Booking found in database: ${booking.bookingReference}, userId=${booking.userId}, activityId=${booking.activityId}`);
+
+    // Check permissions - for merchants, allow access to bookings for their activities
+    // For regular users, only allow access to their own bookings
+    if (userRole === 'merchant') {
+      // Merchants can access bookings for their activities
+      const activity = booking.activityId as any;
+      if (activity?.merchantId) {
+        // merchantId can be ObjectId or string, handle both
+        const activityMerchantId = String(activity.merchantId);
+        const userMerchantId = String(userId);
+        
+        logger.info(`[PAYMENT] Merchant check: activityMerchantId=${activityMerchantId}, userMerchantId=${userMerchantId}`);
+        
+        if (activityMerchantId !== userMerchantId) {
+          logger.warn(`[PAYMENT] Access denied: merchant ${userId} does not own activity for booking ${bookingId}`);
+          throw new AppError('Activity booking not found', 404);
+        }
+      } else {
+        logger.warn(`[PAYMENT] Activity has no merchantId for booking ${bookingId}`);
+        throw new AppError('Activity booking not found', 404);
+      }
+    } else {
+      // Regular users can only access their own bookings
+      const bookingUserId = String(booking.userId);
+      const userMerchantId = String(userId);
+      
+      if (bookingUserId !== userMerchantId) {
+        logger.warn(`[PAYMENT] Access denied: user ${userId} does not own booking ${bookingId} (booking userId: ${bookingUserId})`);
+        throw new AppError('Activity booking not found', 404);
+      }
+    }
+
+    logger.info(`[PAYMENT] Booking found: ${booking.bookingReference}, status: ${booking.status}`);
+
+    // Process payment using dummy payment gateway
+    logger.info(`[DUMMY PAYMENT] Simulating activity booking payment success for ${paymentIntentId}`);
+    const success = await simulateDummyPaymentSuccess(paymentIntentId);
+    
+    if (success) {
+      // Update booking status
+      booking.status = 'payment_completed';
+      booking.payment.paymentStatus = 'completed';
+      booking.payment.paidAt = new Date();
+      booking.payment.transactionId = paymentIntentId;
+      await booking.save();
+
+      // Update availability booked slots
+      if (booking.availabilityId) {
+        const { ActivityAvailability } = await import('../models');
+        const availability = await ActivityAvailability.findById(booking.availabilityId);
+        if (availability) {
+          availability.bookedSlots = (availability.bookedSlots || 0) + booking.numberOfParticipants;
+          await availability.save();
+          logger.info(`Updated availability bookedSlots: ${availability.bookedSlots} for availability ${booking.availabilityId}`);
+        }
+      }
+
+      // Send confirmation emails (you can add email service here)
+      logger.info(`Activity booking ${booking.bookingReference} payment completed`);
+
+      successResponse(res, 'Payment confirmed successfully', {
+        bookingReference: booking.bookingReference,
+        status: booking.status,
+        payment: {
+          amount: booking.payment.amount,
+          triplyCommission: booking.payment.triplyCommission,
+          merchantAmount: booking.payment.merchantAmount,
+        },
+      });
+    } else {
+      throw new AppError('Failed to process payment', 400);
+    }
+  } catch (error) {
+    next(error);
+  }
+};

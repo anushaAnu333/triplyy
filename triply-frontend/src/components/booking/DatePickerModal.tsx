@@ -4,10 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addDays } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, Check } from 'lucide-react';
-import { DayPicker, DateRange } from 'react-day-picker';
+import { Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { bookingsApi } from '@/lib/api/bookings';
-import { cn } from '@/lib/utils';
+import ReusableCalendar from '@/components/common/ReusableCalendar';
 
 interface DatePickerModalProps {
   isOpen: boolean;
@@ -36,7 +34,7 @@ export function DatePickerModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [isFlexible, setIsFlexible] = useState(false);
 
   const selectDatesMutation = useMutation({
@@ -93,44 +91,15 @@ export function DatePickerModal({
         </DialogHeader>
 
         <div className="py-4">
-          <div className="flex justify-center">
-            <DayPicker
-              mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
-              disabled={{ before: addDays(new Date(), 7) }}
-              numberOfMonths={1}
-              className="rounded-md border"
-              classNames={{
-                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                month: "space-y-4",
-                caption: "flex justify-center pt-1 relative items-center",
-                caption_label: "text-sm font-medium",
-                nav: "space-x-1 flex items-center",
-                nav_button: cn(
-                  "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-                ),
-                nav_button_previous: "absolute left-1",
-                nav_button_next: "absolute right-1",
-                table: "w-full border-collapse space-y-1",
-                head_row: "flex",
-                head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-                row: "flex w-full mt-2",
-                cell: "h-9 w-9 text-center text-sm p-0 relative",
-                day: cn(
-                  "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md"
-                ),
-                day_range_start: "day-range-start",
-                day_range_end: "day-range-end",
-                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                day_today: "bg-accent text-accent-foreground",
-                day_outside: "text-muted-foreground opacity-50",
-                day_disabled: "text-muted-foreground opacity-50",
-                day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                day_hidden: "invisible",
-              }}
-            />
-          </div>
+          <ReusableCalendar
+            mode="range"
+            dateRange={dateRange}
+            onDateRangeSelect={setDateRange}
+            minDate={addDays(new Date(), 7)}
+            allowPastDates={false}
+            showSlots={false}
+            showLegend={true}
+          />
 
           {dateRange?.from && dateRange?.to && (
             <div className="mt-4 p-4 bg-muted rounded-lg">

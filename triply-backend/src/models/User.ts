@@ -8,7 +8,7 @@ export interface IUser extends Document {
   firstName: string;
   lastName: string;
   phoneNumber?: string;
-  role: 'user' | 'admin' | 'affiliate';
+  role: 'user' | 'admin' | 'affiliate' | 'merchant';
   isEmailVerified: boolean;
   profileImage?: string;
   lastLogin?: Date;
@@ -53,7 +53,7 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['user', 'admin', 'affiliate'],
+      enum: ['user', 'admin', 'affiliate', 'merchant'],
       default: 'user',
     },
     isEmailVerified: {

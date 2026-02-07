@@ -41,6 +41,7 @@ export interface IBooking extends Document {
   adminNotes?: string;
   rejectionReason?: string;
   calendarUnlockedUntil?: Date;
+  linkedActivityBookings?: mongoose.Types.ObjectId[]; // Array of activity booking IDs linked to this destination booking
   createdAt: Date;
   updatedAt: Date;
 }
@@ -132,6 +133,10 @@ const bookingSchema = new Schema<IBooking>(
     calendarUnlockedUntil: {
       type: Date,
     },
+    linkedActivityBookings: [{
+      type: Schema.Types.ObjectId,
+      ref: 'ActivityBooking',
+    }],
   },
   {
     timestamps: true,

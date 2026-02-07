@@ -21,10 +21,26 @@ app.use(helmet());
 // CORS configuration
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // In development, allow localhost on any port
+      if (env.NODE_ENV === 'development') {
+        if (!origin || origin.startsWith('http://localhost:') || origin === env.FRONTEND_URL) {
+          callback(null, true);
+        } else {
+          callback(null, false);
+        }
+      } else {
+        // In production, only allow the configured frontend URL
+        if (origin === env.FRONTEND_URL) {
+          callback(null, true);
+        } else {
+          callback(null, false);
+        }
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
   })
 );
 

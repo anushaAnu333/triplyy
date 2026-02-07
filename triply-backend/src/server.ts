@@ -15,8 +15,8 @@ const startServer = async (): Promise<void> => {
     // Initialize cron jobs
     initializeCronJobs();
 
-    // Start server
-    app.listen(PORT, () => {
+    // Start server - bind to 0.0.0.0 to accept connections from all interfaces
+    app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server is running on port ${PORT}`);
       logger.info(`Environment: ${env.NODE_ENV}`);
       logger.info(`API URL: http://localhost:${PORT}/api/v1`);

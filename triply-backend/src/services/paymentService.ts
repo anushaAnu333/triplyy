@@ -1,5 +1,5 @@
 import env from '../config/environment';
-import { Booking, AffiliateCode, Commission, User } from '../models';
+import { Booking, AffiliateCode, Commission, User, ActivityBooking } from '../models';
 import logger from '../utils/logger';
 import AppError from '../utils/AppError';
 import { generateTransactionReference } from '../utils/generateReference';
@@ -139,6 +139,39 @@ export const handlePaymentSuccess = async (
     booking.calendarUnlockedUntil = unlockDate;
 
     await booking.save();
+
+    // Process linked activity bookings if this is a combined payment
+    if (booking.linkedActivityBookings && booking.linkedActivityBookings.length > 0) {
+      logger.info(`Processing ${booking.linkedActivityBookings.length} linked activity bookings for booking ${booking.bookingReference}`);
+      
+      const activityBookings = await ActivityBooking.find({
+        _id: { $in: booking.linkedActivityBookings },
+      });
+
+      const { ActivityAvailability } = await import('../models');
+      
+      for (const activityBooking of activityBookings) {
+        if (activityBooking.status === 'pending_payment') {
+          activityBooking.status = 'payment_completed';
+          activityBooking.payment.paymentStatus = 'completed';
+          activityBooking.payment.transactionId = paymentIntentId;
+          activityBooking.payment.paidAt = new Date();
+          await activityBooking.save();
+          
+          // Update availability booked slots
+          if (activityBooking.availabilityId) {
+            const availability = await ActivityAvailability.findById(activityBooking.availabilityId);
+            if (availability) {
+              availability.bookedSlots = (availability.bookedSlots || 0) + activityBooking.numberOfParticipants;
+              await availability.save();
+              logger.info(`Updated availability bookedSlots: ${availability.bookedSlots} for activity booking ${activityBooking.bookingReference}`);
+            }
+          }
+          
+          logger.info(`Activity booking ${activityBooking.bookingReference} marked as payment_completed`);
+        }
+      }
+    }
 
     // Process affiliate commission if applicable
     if (booking.affiliateCode && booking.affiliateId) {

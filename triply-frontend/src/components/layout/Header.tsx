@@ -16,9 +16,11 @@ import { useAuth } from '@/context/AuthContext';
 import { LanguageSelector } from '@/components/common/LanguageSelector';
 import { cn } from '@/lib/utils';
 
-const navigation = [
+const allNavigation = [
   { name: 'Home', href: '/' },
   { name: 'Destinations', href: '/destinations' },
+  { name: 'Activities', href: '/activities' },
+  { name: 'Become a Merchant', href: '/become-merchant' },
   { name: 'How It Works', href: '/#how-it-works' },
 ];
 
@@ -27,6 +29,11 @@ export function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Filter out "Become a Merchant" if user is already a merchant
+  const navigation = allNavigation.filter(
+    (item) => !(item.name === 'Become a Merchant' && user?.role === 'merchant')
+  );
 
   useEffect(() => {
     const handleScroll = () => {
@@ -53,6 +60,7 @@ export function Header() {
   const getDashboardLink = () => {
     if (user?.role === 'admin') return '/admin/dashboard';
     if (user?.role === 'affiliate') return '/affiliate/dashboard';
+    if (user?.role === 'merchant') return '/merchant/dashboard';
     return '/dashboard';
   };
 
@@ -140,6 +148,14 @@ export function Header() {
                       <Link href="/refer" className="cursor-pointer">
                         <Gift className="w-4 h-4 mr-2" />
                         Refer & Earn
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {user?.role === 'merchant' && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/merchant/add-activity" className="cursor-pointer">
+                        <Gift className="w-4 h-4 mr-2" />
+                        Add Activity
                       </Link>
                     </DropdownMenuItem>
                   )}

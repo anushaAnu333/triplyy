@@ -10,4 +10,8 @@ export { default as Message, IMessage } from './Message';
 export { default as EmailLog, IEmailLog, EmailType, EmailStatus } from './EmailLog';
 export { default as Translation, ITranslation } from './Translation';
 export { default as Invitation, IInvitation } from './Invitation';
+export { default as Activity, IActivity, ActivityStatus } from './Activity';
+export { default as ActivityInquiry, IActivityInquiry } from './ActivityInquiry';
+export { default as ActivityAvailability, IActivityAvailability } from './ActivityAvailability';
+export { default as ActivityBooking, IActivityBooking, ActivityBookingStatus } from './ActivityBooking';
 

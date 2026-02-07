@@ -18,6 +18,7 @@ import { formatDate, formatCurrency, getBookingStatusColor, getBookingStatusLabe
 import { Destination } from '@/lib/api/destinations';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { DatePickerModal } from '@/components/booking/DatePickerModal';
+import { ActivityBooking } from '@/lib/api/bookings';
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -274,6 +275,66 @@ export default function BookingDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <p>{booking.rejectionReason}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Linked Activities Section */}
+            {booking.linkedActivityBookings && booking.linkedActivityBookings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Included Activities
+                  </CardTitle>
+                  <CardDescription>
+                    Activities added to this booking
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {booking.linkedActivityBookings.map((activityBooking: ActivityBooking) => {
+                      const activity = activityBooking.activityId as any;
+                      return (
+                        <div
+                          key={activityBooking._id}
+                          className="flex items-start gap-4 p-4 border rounded-lg"
+                        >
+                          {activity?.photos?.[0] && (
+                            <img
+                              src={activity.photos[0]}
+                              alt={activity.title}
+                              className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{activity?.title || 'Activity'}</h4>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {activity?.location}
+                            </p>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4" />
+                                {format(new Date(activityBooking.selectedDate), 'MMM dd, yyyy')}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="w-4 h-4" />
+                                {activityBooking.numberOfParticipants} participant(s)
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">
+                              {formatCurrency(activityBooking.payment.amount, activityBooking.payment.currency)}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {activityBooking.payment.paymentStatus === 'completed' ? 'Paid' : 'Pending'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </CardContent>
               </Card>
             )}

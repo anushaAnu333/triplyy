@@ -62,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push('/admin/dashboard');
     } else if (response.user.role === 'affiliate') {
       router.push('/affiliate/dashboard');
+    } else if (response.user.role === 'merchant') {
+      router.push('/merchant/dashboard');
     } else {
       router.push('/');
     }

@@ -8,6 +8,8 @@ import paymentRoutes from './paymentRoutes';
 import messageRoutes from './messageRoutes';
 import adminRoutes from './adminRoutes';
 import translationRoutes from './translationRoutes';
+import merchantRoutes from './merchantRoutes';
+import activityRoutes from './activityRoutes';
 
 const router = Router();
 
@@ -21,6 +23,8 @@ router.use('/payments', paymentRoutes);
 router.use('/messages', messageRoutes);
 router.use('/admin', adminRoutes);
 router.use('/translations', translationRoutes);
+router.use('/merchant', merchantRoutes);
+router.use('/activities', activityRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

@@ -19,7 +19,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'user' | 'admin' | 'affiliate';
+  role: 'user' | 'admin' | 'affiliate' | 'merchant';
   isEmailVerified: boolean;
   phoneNumber?: string;
   profileImage?: string;

@@ -124,14 +124,10 @@ export const notifyUserDatesSelected = async (bookingId: string): Promise<void> 
     if (!booking) {
       logger.error(`Booking not found for user date selection notification: ${bookingId}`);
       return;
-    }
-
-    if (!booking.travelDates.startDate || !booking.travelDates.endDate) {
+    }    if (!booking.travelDates.startDate || !booking.travelDates.endDate) {
       logger.error(`Travel dates not set for booking: ${bookingId}`);
       return;
-    }
-
-    const destination = booking.destinationId as unknown as { name: { en: string } };
+    }    const destination = booking.destinationId as unknown as { name: { en: string } };
     await sendDateSelectionConfirmation(
       booking.userId.toString(),
       booking.bookingReference,

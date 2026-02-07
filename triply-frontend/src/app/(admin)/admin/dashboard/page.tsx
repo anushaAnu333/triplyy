@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Users, Calendar, DollarSign, TrendingUp, 
-  MapPin, Clock, ArrowRight, BarChart3 
+  MapPin, Clock, ArrowRight, BarChart3, Store
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -283,7 +283,7 @@ export default function AdminDashboardPage() {
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-4 gap-4 mt-6">
+        <div className="grid md:grid-cols-5 gap-4 mt-6">
           <Button variant="outline" className="h-auto py-4 flex-col" asChild>
             <Link href="/admin/bookings">
               <Calendar className="w-6 h-6 mb-2" />
@@ -294,6 +294,12 @@ export default function AdminDashboardPage() {
             <Link href="/admin/destinations">
               <MapPin className="w-6 h-6 mb-2" />
               <span>Destinations</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto py-4 flex-col" asChild>
+            <Link href="/admin/activities">
+              <Store className="w-6 h-6 mb-2" />
+              <span>Activities</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-auto py-4 flex-col" asChild>

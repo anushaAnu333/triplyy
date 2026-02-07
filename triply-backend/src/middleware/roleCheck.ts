@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
 
-type Role = 'user' | 'admin' | 'affiliate';
+type Role = 'user' | 'admin' | 'affiliate' | 'merchant';
 
 /**
  * Role-based access control middleware
@@ -42,3 +42,7 @@ export const affiliateOnly = requireRole('affiliate');
  */
 export const adminOrAffiliate = requireRole('admin', 'affiliate');
 
+/**
+ * Merchant only middleware
+ */
+export const merchantOnly = requireRole('merchant');

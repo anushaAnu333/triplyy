@@ -5,6 +5,10 @@ import {
   getRevenueAnalytics,
   getPopularDestinations,
   getUserGrowth,
+  getPendingActivities,
+  getAllActivities,
+  approveActivity,
+  rejectActivity,
 } from '../controllers/adminController';
 import {
   createInvitation,
@@ -101,6 +105,23 @@ router.post('/invitations/:id/resend', (req, res, next) =>
 
 router.delete('/invitations/:id', (req, res, next) =>
   cancelInvitation(req as AuthRequest, res, next)
+);
+
+// Activity management routes
+router.get('/activities/pending', (req, res, next) =>
+  getPendingActivities(req as AuthRequest, res, next)
+);
+
+router.get('/activities/all', (req, res, next) =>
+  getAllActivities(req as AuthRequest, res, next)
+);
+
+router.put('/activities/:id/approve', (req, res, next) =>
+  approveActivity(req as AuthRequest, res, next)
+);
+
+router.put('/activities/:id/reject', (req, res, next) =>
+  rejectActivity(req as AuthRequest, res, next)
 );
 
 export default router;

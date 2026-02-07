@@ -1,7 +1,8 @@
 import { Response, NextFunction } from 'express';
-import { Booking, User, Destination, Commission } from '../models';
+import { Booking, User, Destination, Commission, Activity } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../types/custom';
+import AppError from '../utils/AppError';
 
 /**
  * Get dashboard statistics
@@ -309,3 +310,93 @@ export const getUserGrowth = async (
   }
 };
 
+// ==================== Activity Management ====================
+/**
+ * Get pending activities for approval
+ * GET /api/v1/admin/activities/pending
+ */
+export const getPendingActivities = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const activities = await Activity.find({ status: 'pending' })
+      .populate('merchantId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .select('-__v');
+
+    successResponse(res, 'Pending activities retrieved successfully', activities);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Approve an activity
+ * PUT /api/v1/admin/activities/:id/approve
+ */
+export const approveActivity = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const activity = await Activity.findById(id);
+
+    if (!activity) {
+      throw new AppError('Activity not found', 404);
+    }
+
+    if (activity.status !== 'pending') {
+      throw new AppError('Activity is not pending approval', 400);
+    }
+
+    activity.status = 'approved';
+    activity.rejectionReason = undefined;
+    await activity.save();
+
+    successResponse(res, 'Activity approved successfully', activity);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reject an activity
+ * PUT /api/v1/admin/activities/:id/reject
+ */
+export const rejectActivity = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { rejectionReason } = req.body;
+
+    if (!rejectionReason) {
+      throw new AppError('Rejection reason is required', 400);
+    }
+
+    const activity = await Activity.findById(id);
+
+    if (!activity) {
+      throw new AppError('Activity not found', 404);
+    }
+
+    if (activity.status !== 'pending') {
+      throw new AppError('Activity is not pending approval', 400);
+    }
+
+    activity.status = 'rejected';
+    activity.rejectionReason = rejectionReason;
+    await activity.save();
+
+    successResponse(res, 'Activity rejected successfully', activity);
+  } catch (error) {
+    next(error);
+  }
+};

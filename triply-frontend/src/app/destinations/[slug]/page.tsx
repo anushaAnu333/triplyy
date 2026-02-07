@@ -18,8 +18,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { destinationsApi } from '@/lib/api/destinations';
 import { bookingsApi } from '@/lib/api/bookings';
 import { affiliatesApi } from '@/lib/api/affiliates';
+import { activitiesApi, Activity } from '@/lib/api/activities';
 import { formatCurrency } from '@/lib/utils';
 import { BookingModal } from '@/components/booking/BookingModal';
+import ActivityBookingModal from '@/components/activities/ActivityBookingModal';
 
 export default function DestinationDetailPage() {
   const params = useParams();
@@ -33,11 +35,59 @@ export default function DestinationDetailPage() {
   const [validatedAffiliate, setValidatedAffiliate] = useState<string | null>(null);
   const [validatingCode, setValidatingCode] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
 
   const { data: destination, isLoading, error } = useQuery({
     queryKey: ['destination', slug],
     queryFn: () => destinationsApi.getBySlug(slug),
     enabled: !!slug,
+  });
+
+  // Fetch activities for this destination's location
+  // Try multiple location terms to find matching activities
+  const { data: activitiesData } = useQuery({
+    queryKey: ['activities', destination?.country, destination?.name?.en],
+    queryFn: async () => {
+      if (!destination) return null;
+      
+      // Extract potential location terms from destination
+      const destinationName = destination.name?.en || '';
+      const country = destination.country || '';
+      
+      // Try to extract city name from destination name (e.g., "Dubai" from "Dubai Luxe Escape")
+      const cityMatch = destinationName.match(/\b(Dubai|Abu Dhabi|Sharjah|Ajman|Fujairah|Ras Al Khaimah|Umm Al Quwain)\b/i);
+      const cityName = cityMatch ? cityMatch[1] : null;
+      
+      // Try multiple search terms in order of preference
+      const searchTerms = [
+        cityName, // Try city name first (most specific)
+        destinationName, // Then destination name
+        country, // Then country
+      ].filter(Boolean) as string[];
+
+      // Try each search term and return the first one that has results
+      for (const term of searchTerms) {
+        if (!term) continue;
+        try {
+          const result = await activitiesApi.getAll({
+            page: 1,
+            limit: 6,
+            location: term,
+          });
+          if (result.data && result.data.length > 0) {
+            return result;
+          }
+        } catch (error) {
+          // Continue to next search term if this one fails
+          continue;
+        }
+      }
+      
+      // If no results with location filter, return empty result
+      return { data: [], meta: { page: 1, limit: 6, total: 0, totalPages: 0 } };
+    },
+    enabled: !!destination,
   });
 
   const validateAffiliateCode = async () => {
@@ -71,6 +121,15 @@ export default function DestinationDetailPage() {
       return;
     }
     setShowBookingModal(true);
+  };
+
+  const handleActivityBookNow = (activity: Activity) => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/destinations/${slug}`);
+      return;
+    }
+    setSelectedActivity(activity);
+    setBookingModalOpen(true);
   };
 
   if (isLoading) {
@@ -312,13 +371,92 @@ export default function DestinationDetailPage() {
         </div>
       </section>
 
+      {/* Things to Do Section */}
+      {activitiesData && activitiesData.data.length > 0 && (
+        <section className="container mx-auto px-4 pb-16">
+          <div className="mb-8">
+            <h2 className="font-display text-3xl font-bold mb-2">
+              Things to Do in {destination.name.en}
+            </h2>
+            <p className="text-muted-foreground">
+              Discover amazing activities and experiences in this destination
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activitiesData.data.map((activity) => (
+              <Card
+                key={activity._id}
+                className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer"
+              >
+                <div className="relative h-48 overflow-hidden">
+                  <img
+                    src={activity.photos[0] || '/placeholder-activity.jpg'}
+                    alt={activity.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <h3 className="font-semibold text-white text-lg mb-1 line-clamp-1">
+                      {activity.title}
+                    </h3>
+                    <p className="text-white/80 text-sm flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {activity.location}
+                    </p>
+                  </div>
+                </div>
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {activity.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-bold">
+                      {formatCurrency(activity.price, activity.currency)}
+                    </p>
+                    <Button
+                      onClick={() => handleActivityBookNow(activity)}
+                      size="sm"
+                      className="bg-brand-orange hover:bg-brand-orange/90"
+                    >
+                      Book Now
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <Button variant="outline" asChild>
+              <Link href="/activities">
+                View All Activities
+              </Link>
+            </Button>
+          </div>
+        </section>
+      )}
+
       {/* Booking Modal */}
       <BookingModal
         isOpen={showBookingModal}
         onClose={() => setShowBookingModal(false)}
         destination={destination}
         affiliateCode={validatedAffiliate ? affiliateCode : undefined}
+        activities={activitiesData?.data || []}
       />
+
+      {/* Activity Booking Modal */}
+      {selectedActivity && (
+        <ActivityBookingModal
+          activity={selectedActivity}
+          isOpen={bookingModalOpen}
+          onClose={() => {
+            setBookingModalOpen(false);
+            setSelectedActivity(null);
+          }}
+        />
+      )}
     </div>
   );
 }

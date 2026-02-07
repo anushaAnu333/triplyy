@@ -1,6 +1,28 @@
 import api from './axios';
 import { Destination } from './destinations';
 
+export interface ActivityBooking {
+  _id: string;
+  activityId: {
+    _id: string;
+    title: string;
+    description: string;
+    location: string;
+    price: number;
+    currency: string;
+    photos: string[];
+  };
+  bookingReference: string;
+  status: string;
+  selectedDate: string;
+  numberOfParticipants: number;
+  payment: {
+    amount: number;
+    currency: string;
+    paymentStatus: string;
+  };
+}
+
 export interface Booking {
   _id: string;
   userId: string;
@@ -25,8 +47,19 @@ export interface Booking {
   affiliateCode?: string;
   calendarUnlockedUntil?: string;
   rejectionReason?: string;
+  linkedActivityBookings?: ActivityBooking[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ActivityBookingItem {
+  activityId: string;
+  selectedDate: string;
+  numberOfParticipants: number;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  specialRequests?: string;
 }
 
 export interface CreateBookingData {
@@ -34,6 +67,7 @@ export interface CreateBookingData {
   numberOfTravellers?: number;
   specialRequests?: string;
   affiliateCode?: string;
+  activities?: ActivityBookingItem[];
 }
 
 export interface CreateBookingResponse {
@@ -43,11 +77,19 @@ export interface CreateBookingResponse {
     status: string;
     depositAmount: number;
     currency: string;
+    totalAmount?: number;
+    activityAmount?: number;
+    hasActivities?: boolean;
   };
   payment: {
     clientSecret: string;
     paymentIntentId: string;
   };
+  activities?: Array<{
+    id: string;
+    bookingReference: string;
+    amount: number;
+  }>;
 }
 
 export interface BookingsResponse {

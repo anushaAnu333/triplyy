@@ -8,7 +8,8 @@ export type EmailType =
   | 'date_reminder'
   | 'calendar_expiring'
   | 'password_reset'
-  | 'email_verification';
+  | 'email_verification'
+  | 'activity_inquiry';
 
 export type EmailStatus = 'sent' | 'failed' | 'pending';
 
@@ -41,6 +42,7 @@ const emailLogSchema = new Schema<IEmailLog>(
         'calendar_expiring',
         'password_reset',
         'email_verification',
+        'activity_inquiry',
       ],
       required: [true, 'Email type is required'],
     },

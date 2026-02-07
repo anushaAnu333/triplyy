@@ -995,12 +995,7 @@ export const getMyReferralCommissions = async (
   }
 };
 
-// ==================== Withdrawal Routes ====================
 
-/**
- * Request withdrawal (Affiliate)
- * POST /api/v1/affiliates/withdrawals
- */
 export const requestWithdrawal = async (
   req: AuthRequest,
   res: Response,

@@ -5,6 +5,8 @@ import {
   handleWebhook,
   getPaymentDetails,
   simulatePayment,
+  createActivityBookingPaymentIntent,
+  confirmActivityBookingPayment,
 } from '../controllers/paymentController';
 import { authenticate } from '../middleware/auth';
 import { paymentLimiter } from '../middleware/rateLimiter';
@@ -39,6 +41,20 @@ router.get(
   '/booking/:bookingId',
   authenticate as any,
   (req, res, next) => getPaymentDetails(req as AuthRequest, res, next)
+);
+
+// Activity booking payment routes
+router.post(
+  '/activity-booking/create-intent',
+  authenticate as any,
+  paymentLimiter,
+  (req, res, next) => createActivityBookingPaymentIntent(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/activity-booking/confirm',
+  authenticate as any,
+  (req, res, next) => confirmActivityBookingPayment(req as AuthRequest, res, next)
 );
 
 export default router;

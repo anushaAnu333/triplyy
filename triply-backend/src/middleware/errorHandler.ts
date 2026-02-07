@@ -73,6 +73,30 @@ const errorHandler = (
     isOperational = true;
   }
 
+  // Handle MongoDB connection errors
+  if (err.name === 'MongoServerSelectionError' || err.name === 'MongoNetworkError') {
+    statusCode = 503; // Service Unavailable
+    if (err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo')) {
+      message = 'Database connection error. Please try again later.';
+      logger.error('MongoDB DNS resolution failed:', err.message);
+    } else if (err.message.includes('ECONNREFUSED')) {
+      message = 'Database connection refused. Please try again later.';
+      logger.error('MongoDB connection refused:', err.message);
+    } else {
+      message = 'Database connection error. Please try again later.';
+      logger.error('MongoDB connection error:', err.message);
+    }
+    isOperational = true;
+  }
+
+  // Handle Mongoose connection errors
+  if (err.name === 'MongooseError' && err.message.includes('connection')) {
+    statusCode = 503;
+    message = 'Database connection error. Please try again later.';
+    isOperational = true;
+    logger.error('Mongoose connection error:', err.message);
+  }
+
   // Log error
   if (!isOperational) {
     logger.error(`Unexpected error: ${err.message}`, { stack: err.stack });

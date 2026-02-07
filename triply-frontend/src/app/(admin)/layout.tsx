@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   LayoutDashboard, Calendar, MapPin, Users, 
-  Clock, Settings, LogOut, Menu, X 
+  Clock, Settings, LogOut, Menu, X, Store
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -16,6 +16,7 @@ const adminNavItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/bookings', label: 'Bookings', icon: Calendar },
   { href: '/admin/destinations', label: 'Destinations', icon: MapPin },
+  { href: '/admin/activities', label: 'Activities', icon: Store },
   { href: '/admin/availability', label: 'Availability', icon: Clock },
   { href: '/admin/affiliates', label: 'Affiliates', icon: Users },
 ];
