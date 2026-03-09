@@ -41,7 +41,7 @@ const checkCalendarExpiry = async (): Promise<void> => {
           await sendCalendarExpiryReminder(
             user._id.toString(),
             booking.bookingReference,
-            destination.name?.en || destination.name || 'Your Destination',
+            (typeof destination.name === 'string' ? destination.name : (destination.name as { en?: string })?.en) || 'Your Destination',
             booking.calendarUnlockedUntil
           );
 

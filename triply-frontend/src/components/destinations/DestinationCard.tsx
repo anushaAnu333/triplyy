@@ -19,7 +19,7 @@ export function DestinationCard({ destination }: DestinationCardProps) {
       <div className="relative h-64 overflow-hidden">
         <Image
           src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
-          alt={destination.name?.en || 'Destination'}
+          alt={destination.name || 'Destination'}
           fill
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
@@ -42,11 +42,11 @@ export function DestinationCard({ destination }: DestinationCardProps) {
       {/* Content */}
       <div className="p-6">
         <h3 className="text-xl font-bold mb-2 group-hover:text-brand-orange transition-colors">
-          {destination.name?.en || 'Destination'}
+          {destination.name || 'Destination'}
         </h3>
         
         <p className="text-gray-500 text-sm mb-4 line-clamp-2">
-          {destination.shortDescription?.en || destination.description?.en || ''}
+          {destination.shortDescription || destination.description || ''}
         </p>
 
         <div className="flex items-center justify-between">

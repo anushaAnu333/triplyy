@@ -35,9 +35,8 @@ export default function AdminDestinationsPage() {
 
   // Form state
   const [formData, setFormData] = useState({
-    nameEn: '',
-    nameAr: '',
-    descriptionEn: '',
+    name: '',
+    description: '',
     country: '',
     region: '',
     depositAmount: 199,
@@ -97,9 +96,8 @@ export default function AdminDestinationsPage() {
 
   const resetForm = () => {
     setFormData({
-      nameEn: '',
-      nameAr: '',
-      descriptionEn: '',
+      name: '',
+      description: '',
       country: '',
       region: '',
       depositAmount: 199,
@@ -111,9 +109,8 @@ export default function AdminDestinationsPage() {
 
   const handleEdit = (destination: Destination) => {
     setFormData({
-      nameEn: destination.name.en,
-      nameAr: destination.name.ar || '',
-      descriptionEn: destination.description.en,
+      name: destination.name,
+      description: destination.description,
       country: destination.country,
       region: destination.region || '',
       depositAmount: destination.depositAmount,
@@ -127,8 +124,8 @@ export default function AdminDestinationsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
-      name: { en: formData.nameEn, ar: formData.nameAr },
-      description: { en: formData.descriptionEn },
+      name: formData.name,
+      description: formData.description,
       country: formData.country,
       region: formData.region,
       depositAmount: formData.depositAmount,
@@ -219,7 +216,7 @@ export default function AdminDestinationsPage() {
                   {destination.thumbnailImage ? (
                     <img
                       src={destination.thumbnailImage}
-                      alt={destination.name.en}
+                      alt={destination.name}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -235,7 +232,7 @@ export default function AdminDestinationsPage() {
                 </div>
                 <CardContent className="p-4">
                   <h3 className="font-display text-xl font-semibold mb-1">
-                    {destination.name.en}
+                    {destination.name}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-3">
                     {destination.country} • {destination.duration.days} days
@@ -291,31 +288,21 @@ export default function AdminDestinationsPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Name (English)</Label>
-                <Input
-                  value={formData.nameEn}
-                  onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Name (Arabic)</Label>
-                <Input
-                  value={formData.nameAr}
-                  onChange={(e) => setFormData({ ...formData, nameAr: e.target.value })}
-                  dir="rtl"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>Description (English)</Label>
+              <Label>Description</Label>
               <textarea
                 className="w-full p-3 border rounded-lg min-h-[100px]"
-                value={formData.descriptionEn}
-                onChange={(e) => setFormData({ ...formData, descriptionEn: e.target.value })}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 required
               />
             </div>

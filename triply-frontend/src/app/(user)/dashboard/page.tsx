@@ -149,7 +149,7 @@ export default function DashboardPage() {
                         {destination?.thumbnailImage && (
                           <img
                             src={destination.thumbnailImage}
-                            alt={destination.name.en}
+                            alt={destination.name}
                             className="w-full h-full object-cover"
                           />
                         )}
@@ -158,7 +158,7 @@ export default function DashboardPage() {
                         <div className="flex items-start justify-between">
                           <div>
                             <h4 className="font-semibold">
-                              {destination?.name?.en || 'Destination'}
+                              {destination?.name || 'Destination'}
                             </h4>
                             <p className="text-sm text-muted-foreground">
                               {booking.bookingReference}

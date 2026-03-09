@@ -2,22 +2,13 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { 
-  Loader2, CreditCard, Check, ArrowLeft, 
-  Lock, Calendar, MapPin, Users, Shield
+  Loader2, CreditCard, ArrowLeft, 
+  Lock, Calendar, MapPin, Users, Shield, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { paymentsApi } from '@/lib/api/payments';
 import { activitiesApi } from '@/lib/api/activities';
@@ -25,139 +16,37 @@ import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import Link from 'next/link';
 
-type PaymentMethod = 'card' | 'debit' | 'credit';
-
-interface PaymentFormData {
-  paymentMethod: PaymentMethod;
-  cardNumber: string;
-  cardHolderName: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cvv: string;
-}
-
 export default function ActivityPaymentPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const bookingId = params.bookingId as string;
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
-  const [formData, setFormData] = useState<PaymentFormData>({
-    paymentMethod: 'card',
-    cardNumber: '',
-    cardHolderName: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-  });
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Fetch booking details
   const { data: booking, isLoading: isLoadingBooking, error: bookingError } = useQuery({
     queryKey: ['activityBooking', bookingId],
     queryFn: () => activitiesApi.getBookingById(bookingId),
     enabled: !!bookingId,
   });
 
-  const handleInputChange = (field: keyof PaymentFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const formatCardNumber = (value: string) => {
-    const cleaned = value.replace(/\s/g, '');
-    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
-    return formatted.slice(0, 19); // Max 16 digits + 3 spaces
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    handleInputChange('cardNumber', formatted);
-  };
-
-  const paymentMutation = useMutation({
-    mutationFn: async () => {
-      // Create payment intent
-      const paymentIntent = await paymentsApi.createActivityBookingIntent(bookingId);
-      
-      // Simulate payment processing (dummy payment)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Confirm payment
-      return await paymentsApi.confirmActivityBookingPayment({
-        paymentIntentId: paymentIntent.paymentIntentId,
-        bookingId: bookingId,
-      });
-    },
-    onSuccess: (data) => {
+  const handleProceedToStripe = async () => {
+    setIsRedirecting(true);
+    try {
+      const { url } = await paymentsApi.createActivityBookingCheckoutSession(bookingId);
+      window.location.href = url;
+    } catch (error: unknown) {
+      setIsRedirecting(false);
+      const msg = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : null;
       toast({
-        title: 'Payment Successful!',
-        description: `Your booking reference is ${data.bookingReference}`,
-      });
-      router.push(`/bookings/activity/${bookingId}/success`);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Payment Failed',
-        description: error.response?.data?.message || 'Failed to process payment. Please try again.',
+        title: 'Cannot proceed to payment',
+        description: msg || 'Payment is not available. Please try again or contact support.',
         variant: 'destructive',
       });
-      setIsProcessing(false);
-    },
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (!formData.cardNumber || formData.cardNumber.replace(/\s/g, '').length < 16) {
-      toast({
-        title: 'Invalid Card Number',
-        description: 'Please enter a valid 16-digit card number',
-        variant: 'destructive',
-      });
-      return;
     }
-
-    if (!formData.cardHolderName) {
-      toast({
-        title: 'Card Holder Name Required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!formData.expiryMonth || !formData.expiryYear) {
-      toast({
-        title: 'Expiry Date Required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!formData.cvv || formData.cvv.length < 3) {
-      toast({
-        title: 'CVV Required',
-        description: 'Please enter a valid CVV',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    paymentMutation.mutate();
   };
-
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    return { value: month.toString().padStart(2, '0'), label: month.toString().padStart(2, '0') };
-  });
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 15 }, (_, i) => {
-    const year = currentYear + i;
-    return { value: year.toString(), label: year.toString() };
-  });
 
   // Show loading state
   if (isLoadingBooking) {
@@ -195,14 +84,13 @@ export default function ActivityPaymentPage() {
     return null;
   }
 
-  const activity = booking.activityId as any;
+  const activity = booking.activityId as { title?: string } | undefined;
   const totalAmount = booking.payment.amount;
   const currency = booking.payment.currency || 'AED';
 
   return (
     <div className="min-h-screen bg-muted/30 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
-        {/* Back Button */}
         <Button variant="ghost" asChild className="mb-6">
           <Link href="/activities">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -211,7 +99,6 @@ export default function ActivityPaymentPage() {
         </Button>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Payment Form */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -220,136 +107,37 @@ export default function ActivityPaymentPage() {
                   Payment Details
                 </CardTitle>
                 <CardDescription>
-                  Complete your booking by entering your payment information
+                  You will be redirected to Stripe to complete your payment securely.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Payment Method */}
-                  <div>
-                    <Label>Payment Method</Label>
-                    <Select
-                      value={paymentMethod}
-                      onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="card">Credit/Debit Card</SelectItem>
-                        <SelectItem value="credit">Credit Card</SelectItem>
-                        <SelectItem value="debit">Debit Card</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-2 p-4 bg-muted rounded-lg">
+                  <Shield className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-muted-foreground">
+                    <p className="font-semibold mb-1">Secure Payment</p>
+                    <p>Pay with card (Visa, Mastercard, etc.) on Stripe&apos;s secure checkout page.</p>
                   </div>
-
-                  {/* Card Number */}
-                  <div>
-                    <Label htmlFor="cardNumber">Card Number</Label>
-                    <Input
-                      id="cardNumber"
-                      type="text"
-                      placeholder="1234 5678 9012 3456"
-                      value={formData.cardNumber}
-                      onChange={handleCardNumberChange}
-                      maxLength={19}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {/* Card Holder Name */}
-                  <div>
-                    <Label htmlFor="cardHolderName">Card Holder Name</Label>
-                    <Input
-                      id="cardHolderName"
-                      type="text"
-                      placeholder="John Doe"
-                      value={formData.cardHolderName}
-                      onChange={(e) => handleInputChange('cardHolderName', e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {/* Expiry and CVV */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Expiry Date</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        <Select
-                          value={formData.expiryMonth}
-                          onValueChange={(value) => handleInputChange('expiryMonth', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="MM" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {months.map((month) => (
-                              <SelectItem key={month.value} value={month.value}>
-                                {month.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={formData.expiryYear}
-                          onValueChange={(value) => handleInputChange('expiryYear', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="YYYY" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {years.map((year) => (
-                              <SelectItem key={year.value} value={year.value}>
-                                {year.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="cvv">CVV</Label>
-                      <Input
-                        id="cvv"
-                        type="text"
-                        placeholder="123"
-                        value={formData.cvv}
-                        onChange={(e) => handleInputChange('cvv', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        maxLength={4}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Security Notice */}
-                  <div className="flex items-start gap-2 p-4 bg-muted rounded-lg">
-                    <Shield className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-muted-foreground">
-                      <p className="font-semibold mb-1">Secure Payment</p>
-                      <p>Your payment information is encrypted and secure. This is a dummy payment page for testing purposes.</p>
-                    </div>
-                  </div>
-
-                  {/* Submit Button */}
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full"
-                    disabled={isProcessing || paymentMutation.isPending}
-                  >
-                    {isProcessing || paymentMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing Payment...
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="mr-2 h-4 w-4" />
-                        Pay Now
-                      </>
-                    )}
-                  </Button>
-                </form>
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="w-full"
+                  disabled={isRedirecting}
+                  onClick={handleProceedToStripe}
+                >
+                  {isRedirecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Redirecting to Stripe...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="mr-2 h-4 w-4" />
+                      Proceed to Pay {formatCurrency(totalAmount, currency)}
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </div>

@@ -251,7 +251,7 @@ async function seedDestinations() {
     const result = await Destination.insertMany(destinations);
     console.log(`Successfully inserted ${result.length} destinations:`);
     result.forEach((dest) => {
-      console.log(`  - ${dest.name.en} (${dest.slug})`);
+      console.log(`  - ${typeof dest.name === 'string' ? dest.name : (dest.name as { en?: string })?.en} (${dest.slug})`);
     });
 
     console.log('\nSeeding complete!');

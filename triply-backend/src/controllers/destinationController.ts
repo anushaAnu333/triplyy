@@ -4,6 +4,26 @@ import { successResponse, createdResponse, getPaginationMeta } from '../utils/ap
 import AppError from '../utils/AppError';
 import { AuthRequest, DestinationFilters } from '../types/custom';
 
+/** Normalize destination from legacy multilingual shape to single-language shape for API response */
+function normalizeDestination(doc: unknown): Record<string, unknown> {
+  const d = doc as Record<string, unknown>;
+  const toStr = (v: unknown): string =>
+    typeof v === 'string' ? v : (v as { en?: string })?.en ?? '';
+  const toStrArr = (v: unknown): string[] =>
+    Array.isArray(v)
+      ? v.map((x) => (typeof x === 'string' ? x : (x as { en?: string })?.en ?? ''))
+      : [];
+  return {
+    ...d,
+    name: toStr(d.name),
+    description: toStr(d.description),
+    shortDescription: d.shortDescription != null ? toStr(d.shortDescription) : undefined,
+    highlights: d.highlights != null ? toStrArr(d.highlights) : [],
+    inclusions: d.inclusions != null ? toStrArr(d.inclusions) : [],
+    exclusions: d.exclusions != null ? toStrArr(d.exclusions) : [],
+  };
+}
+
 /**
  * Get all active destinations with filters
  * GET /api/v1/destinations
@@ -33,21 +53,23 @@ export const getDestinations = async (
 
     if (search) {
       query.$or = [
-        { 'name.en': { $regex: search, $options: 'i' } },
-        { 'name.ar': { $regex: search, $options: 'i' } },
-        { 'description.en': { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
         { country: { $regex: search, $options: 'i' } },
       ];
     }
 
-    const [destinations, total] = await Promise.all([
+    const [rawDestinations, total] = await Promise.all([
       Destination.find(query)
         .select('name slug shortDescription thumbnailImage country region depositAmount currency duration')
         .skip(skip)
         .limit(limitNum)
-        .sort({ createdAt: -1 }),
+        .sort({ createdAt: -1 })
+        .lean(),
       Destination.countDocuments(query),
     ]);
+
+    const destinations = rawDestinations.map((d) => normalizeDestination(d));
 
     successResponse(
       res,
@@ -72,13 +94,13 @@ export const getDestinationBySlug = async (
   try {
     const { slug } = req.params;
 
-    const destination = await Destination.findOne({ slug, isActive: true });
+    const raw = await Destination.findOne({ slug, isActive: true }).lean();
 
-    if (!destination) {
+    if (!raw) {
       throw new AppError('Destination not found', 404);
     }
 
-    successResponse(res, 'Destination retrieved successfully', destination);
+    successResponse(res, 'Destination retrieved successfully', normalizeDestination(raw));
   } catch (error) {
     next(error);
   }

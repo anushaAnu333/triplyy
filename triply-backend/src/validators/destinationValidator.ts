@@ -5,28 +5,20 @@ import mongoose from 'mongoose';
  * Create/Update destination validation rules
  */
 export const destinationValidator = [
-  body('name.en')
+  body('name')
     .notEmpty()
-    .withMessage('English name is required')
+    .withMessage('Name is required')
     .trim()
     .isLength({ max: 200 })
     .withMessage('Name cannot exceed 200 characters'),
-  body('name.ar')
-    .optional()
-    .trim()
-    .isLength({ max: 200 })
-    .withMessage('Arabic name cannot exceed 200 characters'),
   body('slug')
     .optional()
     .trim()
     .isSlug()
     .withMessage('Invalid slug format'),
-  body('description.en')
+  body('description')
     .notEmpty()
-    .withMessage('English description is required')
-    .trim(),
-  body('description.ar')
-    .optional()
+    .withMessage('Description is required')
     .trim(),
   body('country')
     .notEmpty()

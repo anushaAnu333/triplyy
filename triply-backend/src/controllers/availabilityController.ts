@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { Availability, Destination } from '../models';
 import { successResponse, createdResponse } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
@@ -229,6 +230,7 @@ export const bulkUpdateSlots = async (
       throw new AppError('Destination not found', 404);
     }
 
+    const destId = new mongoose.Types.ObjectId(destinationId);
     // Bulk upsert operations
     const bulkOps = dates.map((dateStr: string) => {
       const date = new Date(dateStr);
@@ -236,10 +238,10 @@ export const bulkUpdateSlots = async (
       
       return {
         updateOne: {
-          filter: { destinationId, date },
+          filter: { destinationId: destId, date },
           update: {
             $set: {
-              destinationId,
+              destinationId: destId,
               date,
               availableSlots: totalSlots,
             },
@@ -288,6 +290,7 @@ export const bulkBlockDates = async (
       throw new AppError('Destination not found', 404);
     }
 
+    const destId = new mongoose.Types.ObjectId(destinationId);
     // Bulk upsert operations
     const bulkOps = dates.map((dateStr: string) => {
       const date = new Date(dateStr);
@@ -295,10 +298,10 @@ export const bulkBlockDates = async (
       
       return {
         updateOne: {
-          filter: { destinationId, date },
+          filter: { destinationId: destId, date },
           update: {
             $set: {
-              destinationId,
+              destinationId: destId,
               date,
               isBlocked: isBlocked || false,
             },

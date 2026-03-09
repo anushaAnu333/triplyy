@@ -1,7 +1,10 @@
 import { Router, raw } from 'express';
 import {
   createIntent,
+  createCheckoutSession,
+  createActivityBookingCheckoutSession,
   confirmPayment,
+  confirmFromSession,
   handleWebhook,
   getPaymentDetails,
   simulatePayment,
@@ -26,9 +29,22 @@ router.post(
 );
 
 router.post(
+  '/create-checkout-session',
+  authenticate as any,
+  paymentLimiter,
+  (req, res, next) => createCheckoutSession(req as AuthRequest, res, next)
+);
+
+router.post(
   '/confirm',
   authenticate as any,
   (req, res, next) => confirmPayment(req as AuthRequest, res, next)
+);
+
+router.get(
+  '/confirm-from-session',
+  authenticate as any,
+  (req, res, next) => confirmFromSession(req as AuthRequest, res, next)
 );
 
 router.post(
@@ -49,6 +65,13 @@ router.post(
   authenticate as any,
   paymentLimiter,
   (req, res, next) => createActivityBookingPaymentIntent(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/activity-booking/create-checkout-session',
+  authenticate as any,
+  paymentLimiter,
+  (req, res, next) => createActivityBookingCheckoutSession(req as AuthRequest, res, next)
 );
 
 router.post(

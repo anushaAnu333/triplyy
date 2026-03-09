@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X, User, ChevronDown, LogOut, LayoutDashboard, Calendar, Settings, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -72,13 +73,15 @@ export function Header() {
       <nav className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-brand-orange flex items-center justify-center">
-              <span className="text-white font-bold text-xl">T</span>
-            </div>
-            <span className={cn('text-2xl font-bold tracking-tight', logoColor)}>
-              TRIPLY
-            </span>
+          <Link href="/" className="flex items-center shrink-0">
+            <Image
+              src="/images/triply-logo.png"
+              alt="TRIPLY - Travel. Connect. Repeat."
+              width={280}
+              height={80}
+              className="h-14 w-auto md:h-[100px] object-contain"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}

@@ -56,17 +56,12 @@ export const createBooking = async (
       affiliateId = affiliate.affiliateId.toString();
     }
 
-    // Get user to check for referral discount and use for activity bookings
+    // Get user for activity bookings
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
-    let depositAmount = destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT;
-    
-    // Apply referral discount if user has one
-    if (user?.discountAmount) {
-      depositAmount = Math.max(0, depositAmount - user.discountAmount);
-    }
+    const depositAmount = destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT;
 
     // Validate deposit amount (must be at least 0.50 AED)
     if (depositAmount < 0.5) {

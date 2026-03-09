@@ -1,8 +1,25 @@
+import Stripe from 'stripe';
 import env from '../config/environment';
-import { Booking, AffiliateCode, Commission, User, ActivityBooking } from '../models';
+import { Booking, AffiliateCode, Commission, User, ActivityBooking, ActivityAvailability } from '../models';
 import logger from '../utils/logger';
 import AppError from '../utils/AppError';
 import { generateTransactionReference } from '../utils/generateReference';
+
+/** Stripe client (only initialized when STRIPE_SECRET_KEY is set) */
+const getStripe = (): Stripe | null => {
+  if (!env.STRIPE_SECRET_KEY) return null;
+  return new Stripe(env.STRIPE_SECRET_KEY);
+};
+
+/** Stripe minimum for AED Checkout (Stripe requires at least 2.00 AED) */
+const STRIPE_MIN_AMOUNT_AED = 2;
+
+/** Convert AED to Stripe amount (fils: 1 AED = 100 fils) */
+const toStripeAmount = (amount: number, currency: string): number => {
+  const c = (currency || 'aed').toLowerCase();
+  if (c === 'aed') return Math.round(amount * 100);
+  return Math.round(amount * 100); // default same as AED for other 2-decimal currencies
+};
 
 interface CreatePaymentIntentParams {
   bookingId: string;
@@ -366,14 +383,218 @@ export const processRefund = async (
 };
 
 /**
- * Verify webhook signature (for future payment gateway integration)
+ * Verify webhook signature (Stripe)
  */
 export const verifyWebhookSignature = (
   payload: string | Buffer,
   signature: string
 ): boolean => {
-  // For dummy payment gateway, always return true
-  logger.info('[DUMMY PAYMENT] Webhook signature verification skipped (dummy mode)');
-  return true;
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET) {
+    logger.info('[DUMMY PAYMENT] Webhook signature verification skipped (no Stripe secrets)');
+    return true;
+  }
+  const stripe = getStripe();
+  if (!stripe) return true;
+  try {
+    stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      env.STRIPE_WEBHOOK_SECRET
+    );
+    return true;
+  } catch (err) {
+    logger.warn('Stripe webhook signature verification failed:', err);
+    return false;
+  }
+};
+
+/**
+ * Create Stripe Checkout Session for deposit (trip booking)
+ * User is redirected to Stripe-hosted page to pay.
+ */
+export const createStripeCheckoutSessionForDeposit = async (params: {
+  bookingId: string;
+  amount: number;
+  currency: string;
+  bookingReference: string;
+}): Promise<{ url: string }> => {
+  const stripe = getStripe();
+  if (!stripe) {
+    throw new AppError('Stripe is not configured. Set STRIPE_SECRET_KEY.', 503);
+  }
+  const { bookingId, amount, currency, bookingReference } = params;
+  const chargeAmount = Math.max(amount, STRIPE_MIN_AMOUNT_AED);
+  const amountInSmallestUnit = toStripeAmount(chargeAmount, 'aed');
+  const baseUrl = (env.FRONTEND_URL || '').replace(/\/$/, '');
+
+  // Abu Dhabi / UAE company: charge in AED only, English locale
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    locale: 'en',
+    line_items: [
+      {
+        price_data: {
+          currency: 'aed',
+          unit_amount: amountInSmallestUnit,
+          product_data: {
+            name: `Trip deposit – ${bookingReference}`,
+            description: 'Deposit to secure your booking. Calendar will unlock for 1 year after payment.',
+          },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${baseUrl}/payment/${bookingId}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/payment/${bookingId}`,
+    metadata: {
+      bookingId,
+      type: 'deposit',
+      bookingReference,
+    },
+    client_reference_id: bookingId,
+  });
+
+  const url = session.url;
+  if (!url) {
+    throw new AppError('Failed to create Stripe Checkout session', 500);
+  }
+  logger.info(`[STRIPE] Checkout session created for deposit booking ${bookingId}`);
+  return { url };
+};
+
+/**
+ * Create Stripe Checkout Session for activity booking
+ */
+export const createStripeCheckoutSessionForActivity = async (params: {
+  bookingId: string;
+  amount: number;
+  currency: string;
+  bookingReference: string;
+}): Promise<{ url: string }> => {
+  const stripe = getStripe();
+  if (!stripe) {
+    throw new AppError('Stripe is not configured. Set STRIPE_SECRET_KEY.', 503);
+  }
+  const { bookingId, amount, currency, bookingReference } = params;
+  const chargeAmount = Math.max(amount, STRIPE_MIN_AMOUNT_AED);
+  const amountInSmallestUnit = toStripeAmount(chargeAmount, 'aed');
+  const baseUrl = (env.FRONTEND_URL || '').replace(/\/$/, '');
+
+  // Abu Dhabi / UAE company: charge in AED only, English locale
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    locale: 'en',
+    line_items: [
+      {
+        price_data: {
+          currency: 'aed',
+          unit_amount: amountInSmallestUnit,
+          product_data: {
+            name: `Activity booking – ${bookingReference}`,
+            description: 'Activity booking payment',
+          },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${baseUrl}/bookings/activity/${bookingId}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/payment/activity/${bookingId}`,
+    metadata: {
+      bookingId,
+      type: 'activity_booking',
+      bookingReference,
+    },
+    client_reference_id: bookingId,
+  });
+
+  const url = session.url;
+  if (!url) {
+    throw new AppError('Failed to create Stripe Checkout session', 500);
+  }
+  logger.info(`[STRIPE] Checkout session created for activity booking ${bookingId}`);
+  return { url };
+};
+
+/**
+ * Retrieve Stripe Checkout Session and verify it is paid (for success-page fallback when webhook is not received)
+ */
+export const retrieveStripeCheckoutSession = async (sessionId: string): Promise<Stripe.Checkout.Session> => {
+  const stripe = getStripe();
+  if (!stripe) {
+    throw new AppError('Stripe is not configured', 503);
+  }
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (session.payment_status !== 'paid') {
+    throw new AppError('Session payment not completed', 400);
+  }
+  return session;
+};
+
+/**
+ * Handle Stripe checkout.session.completed – update booking and run post-payment logic
+ */
+export const handleCheckoutSessionCompleted = async (
+  session: Stripe.Checkout.Session
+): Promise<void> => {
+  const type = session.metadata?.type;
+  const bookingId = session.metadata?.bookingId;
+  const paymentIntentId = typeof session.payment_intent === 'string'
+    ? session.payment_intent
+    : session.payment_intent?.id;
+
+  if (!bookingId || !type) {
+    logger.warn('[STRIPE] Checkout session missing metadata bookingId or type', { sessionId: session.id });
+    return;
+  }
+
+  if (type === 'deposit') {
+    await handlePaymentSuccess(paymentIntentId || session.id, bookingId);
+    const { notifyDepositPaid } = await import('./notificationService');
+    await notifyDepositPaid(bookingId);
+    return;
+  }
+
+  if (type === 'activity_booking') {
+    await handleActivityBookingPaymentSuccess(bookingId, paymentIntentId || session.id);
+    return;
+  }
+
+  logger.warn('[STRIPE] Unknown checkout session type', { type, sessionId: session.id });
+}
+
+/**
+ * Mark activity booking as paid and update availability (used by Stripe webhook)
+ */
+export const handleActivityBookingPaymentSuccess = async (
+  activityBookingId: string,
+  transactionId: string
+): Promise<void> => {
+  const booking = await ActivityBooking.findById(activityBookingId)
+    .populate('availabilityId');
+  if (!booking) {
+    throw new AppError('Activity booking not found', 404);
+  }
+  if (booking.status !== 'pending_payment') {
+    logger.info(`[STRIPE] Activity booking ${activityBookingId} already processed, skipping`);
+    return;
+  }
+
+  booking.status = 'payment_completed';
+  booking.payment.paymentStatus = 'completed';
+  booking.payment.paidAt = new Date();
+  booking.payment.transactionId = transactionId;
+  await booking.save();
+
+  if (booking.availabilityId) {
+    const availability = await ActivityAvailability.findById(booking.availabilityId);
+    if (availability) {
+      availability.bookedSlots = (availability.bookedSlots || 0) + booking.numberOfParticipants;
+      await availability.save();
+      logger.info(`Updated availability bookedSlots for activity booking ${booking.bookingReference}`);
+    }
+  }
+  logger.info(`[STRIPE] Activity booking ${booking.bookingReference} payment completed`);
 };
 

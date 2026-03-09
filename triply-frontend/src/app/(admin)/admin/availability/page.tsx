@@ -85,7 +85,7 @@ export default function AdminAvailabilityPage() {
 
   const destinationItems = destinations?.data?.map((dest: any) => ({
     _id: dest._id,
-    name: dest.name?.en || dest.name || 'Unnamed Destination',
+    name: dest.name || 'Unnamed Destination',
   })) || [];
 
   return (

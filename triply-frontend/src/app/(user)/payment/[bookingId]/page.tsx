@@ -4,35 +4,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  Loader2, CreditCard, Check, ArrowLeft, 
-  Lock, Calendar, MapPin 
+  Loader2, CreditCard, ArrowLeft, 
+  Lock, Calendar, MapPin, Shield, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { bookingsApi } from '@/lib/api/bookings';
 import { paymentsApi } from '@/lib/api/payments';
 import { formatCurrency } from '@/lib/utils';
-
-type PaymentMethod = 'card' | 'debit' | 'credit';
-
-interface PaymentFormData {
-  paymentMethod: PaymentMethod;
-  cardNumber: string;
-  cardHolderName: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cvv: string;
-}
 
 export default function PaymentPage() {
   const params = useParams();
@@ -40,17 +20,7 @@ export default function PaymentPage() {
   const { toast } = useToast();
   const bookingId = params.bookingId as string;
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
-  const [formData, setFormData] = useState<PaymentFormData>({
-    paymentMethod: 'card',
-    cardNumber: '',
-    cardHolderName: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(0);
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [activityAmount, setActivityAmount] = useState<number>(0);
@@ -66,167 +36,53 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (booking) {
-      // If payment is already completed, redirect to success page
       if (booking.status === 'deposit_paid' || booking.depositPayment?.paymentStatus === 'completed') {
         router.push(`/payment/${bookingId}/success`);
         return;
       }
-
-      // Extract payment intent ID from booking if available
-      // Get it from localStorage (stored during booking creation)
       const storedPaymentData = localStorage.getItem(`payment_${bookingId}`);
       if (storedPaymentData) {
         try {
           const data = JSON.parse(storedPaymentData);
-          setPaymentIntentId(data.paymentIntentId || '');
-          setDepositAmount(data.depositAmount || booking.depositPayment?.amount || 0);
-          setTotalAmount(data.totalAmount || data.depositAmount || booking.depositPayment?.amount || 0);
-          setActivityAmount(data.activityAmount || 0);
-          setHasActivities(data.hasActivities || false);
-          setCurrency(data.currency || booking.depositPayment?.currency || 'AED');
-        } catch (error) {
-          console.error('Error parsing payment data:', error);
-          // Fallback to booking data
-          const deposit = booking.depositPayment?.amount || 0;
+          setDepositAmount(data.depositAmount ?? booking.depositPayment?.amount ?? 0);
+          setTotalAmount(data.totalAmount ?? data.depositAmount ?? booking.depositPayment?.amount ?? 0);
+          setActivityAmount(data.activityAmount ?? 0);
+          setHasActivities(data.hasActivities ?? false);
+          setCurrency(data.currency ?? booking.depositPayment?.currency ?? 'AED');
+        } catch {
+          const deposit = booking.depositPayment?.amount ?? 0;
           setDepositAmount(deposit);
           setTotalAmount(deposit);
-          setActivityAmount(0);
-          setHasActivities(false);
-          setCurrency(booking.depositPayment?.currency || 'AED');
+          setCurrency(booking.depositPayment?.currency ?? 'AED');
         }
       } else {
-        // Fallback to booking data
-        const deposit = booking.depositPayment?.amount || 0;
+        const deposit = booking.depositPayment?.amount ?? 0;
         setDepositAmount(deposit);
         setTotalAmount(deposit);
         setActivityAmount(0);
-        setHasActivities(!!(booking.linkedActivityBookings && booking.linkedActivityBookings.length > 0));
-        setCurrency(booking.depositPayment?.currency || 'AED');
+        setHasActivities(!!(booking.linkedActivityBookings?.length));
+        setCurrency(booking.depositPayment?.currency ?? 'AED');
       }
     }
   }, [booking, bookingId, router]);
 
-  const handleInputChange = (field: keyof PaymentFormData, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const formatCardNumber = (value: string) => {
-    // Remove all non-digits
-    const digits = value.replace(/\D/g, '');
-    // Add spaces every 4 digits
-    return digits.match(/.{1,4}/g)?.join(' ') || digits;
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    handleInputChange('cardNumber', formatted);
-  };
-
-  const handleExpiryChange = (field: 'expiryMonth' | 'expiryYear', value: string) => {
-    handleInputChange(field, value);
-  };
-
-  const validateForm = (): boolean => {
-    if (!formData.cardNumber || formData.cardNumber.replace(/\s/g, '').length < 16) {
-      toast({
-        title: 'Invalid Card Number',
-        description: 'Please enter a valid 16-digit card number',
-        variant: 'destructive',
-      });
-      return false;
-    }
-
-    if (!formData.cardHolderName || formData.cardHolderName.trim().length < 3) {
-      toast({
-        title: 'Invalid Card Holder Name',
-        description: 'Please enter the card holder name',
-        variant: 'destructive',
-      });
-      return false;
-    }
-
-    if (!formData.expiryMonth || !formData.expiryYear) {
-      toast({
-        title: 'Invalid Expiry Date',
-        description: 'Please select expiry month and year',
-        variant: 'destructive',
-      });
-      return false;
-    }
-
-    if (!formData.cvv || formData.cvv.length < 3) {
-      toast({
-        title: 'Invalid CVV',
-        description: 'Please enter a valid CVV',
-        variant: 'destructive',
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    // Get paymentIntentId - check state first, then localStorage
-    let finalPaymentIntentId = paymentIntentId;
-    if (!finalPaymentIntentId) {
-      const storedPaymentData = localStorage.getItem(`payment_${bookingId}`);
-      if (storedPaymentData) {
-        try {
-          const data = JSON.parse(storedPaymentData);
-          if (data.paymentIntentId) {
-            finalPaymentIntentId = data.paymentIntentId;
-            setPaymentIntentId(data.paymentIntentId);
-          }
-        } catch (error) {
-          console.error('Error parsing payment data:', error);
-        }
-      }
-    }
-
-    if (!finalPaymentIntentId) {
-      toast({
-        title: 'Payment Error',
-        description: 'Payment intent not found. Please try booking again or contact support.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
+  const handleProceedToStripe = async () => {
+    setIsRedirecting(true);
     try {
-      await paymentsApi.confirm({
-        paymentIntentId: finalPaymentIntentId,
-        bookingId,
-      });
-
-      // Payment successful - navigate to success page
-      router.push(`/payment/${bookingId}/success`);
-    } catch (error: any) {
-      setIsSubmitting(false);
+      const { url } = await paymentsApi.createCheckoutSession(bookingId);
+      window.location.href = url;
+    } catch (error: unknown) {
+      setIsRedirecting(false);
+      const msg = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : null;
       toast({
-        title: 'Payment Failed',
-        description: error.response?.data?.message || error.message || 'Unable to process payment',
+        title: 'Cannot proceed to payment',
+        description: msg || 'Payment is not available. Please try again or contact support.',
         variant: 'destructive',
       });
     }
   };
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 20 }, (_, i) => currentYear + i);
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    return month.toString().padStart(2, '0');
-  });
 
   if (isLoadingBooking) {
     return (
@@ -247,213 +103,124 @@ export default function PaymentPage() {
     );
   }
 
+  const displayAmount = totalAmount || depositAmount;
+  const destinationName = typeof booking.destinationId === 'object'
+    ? booking.destinationId?.name || 'N/A'
+    : 'N/A';
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <Button
-        variant="ghost"
-        onClick={() => router.back()}
-        className="mb-6"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
-      </Button>
+    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-muted/40 to-background">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="mb-8 -ml-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        {/* Payment Form */}
-        <div className="md:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Payment Details
-              </CardTitle>
-              <CardDescription>
-                Complete your booking by making the deposit payment
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Payment Method Selection */}
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select
-                    value={paymentMethod}
-                    onValueChange={(value) => {
-                      setPaymentMethod(value as PaymentMethod);
-                      handleInputChange('paymentMethod', value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="card">Credit Card</SelectItem>
-                      <SelectItem value="debit">Debit Card</SelectItem>
-                      <SelectItem value="credit">Credit Card (Visa/Mastercard)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Card Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="cardNumber">Card Number</Label>
-                  <Input
-                    id="cardNumber"
-                    type="text"
-                    placeholder="1234 5678 9012 3456"
-                    maxLength={19}
-                    value={formData.cardNumber}
-                    onChange={handleCardNumberChange}
-                    disabled={isSubmitting}
-                    required
-                  />
-                </div>
-
-                {/* Card Holder Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="cardHolderName">Card Holder Name</Label>
-                  <Input
-                    id="cardHolderName"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.cardHolderName}
-                    onChange={(e) => handleInputChange('cardHolderName', e.target.value.toUpperCase())}
-                    disabled={isSubmitting}
-                    required
-                  />
-                </div>
-
-                {/* Expiry Date and CVV */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="expiryMonth">Expiry Month</Label>
-                    <Select
-                      value={formData.expiryMonth}
-                      onValueChange={(value) => handleExpiryChange('expiryMonth', value)}
-                      disabled={isSubmitting}
-                    >
-                      <SelectTrigger id="expiryMonth">
-                        <SelectValue placeholder="MM" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {months.map((month) => (
-                          <SelectItem key={month} value={month}>
-                            {month}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+        <div className="grid lg:grid-cols-5 gap-8">
+          {/* Payment – main focus */}
+          <div className="lg:col-span-3">
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <div className="bg-primary/5 px-6 py-4 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <CreditCard className="h-5 w-5 text-primary" />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="expiryYear">Expiry Year</Label>
-                    <Select
-                      value={formData.expiryYear}
-                      onValueChange={(value) => handleExpiryChange('expiryYear', value)}
-                      disabled={isSubmitting}
-                    >
-                      <SelectTrigger id="expiryYear">
-                        <SelectValue placeholder="YYYY" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cvv">CVV</Label>
-                    <Input
-                      id="cvv"
-                      type="text"
-                      placeholder="123"
-                      maxLength={4}
-                      value={formData.cvv}
-                      onChange={(e) => handleInputChange('cvv', e.target.value.replace(/\D/g, ''))}
-                      disabled={isSubmitting}
-                      required
-                    />
+                  <div>
+                    <CardTitle className="text-lg mb-0">Complete your deposit</CardTitle>
+                    <CardDescription className="mt-0.5">
+                      Secure payment via Stripe
+                    </CardDescription>
                   </div>
                 </div>
+              </div>
+              <CardContent className="p-6 space-y-6">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  You&apos;ll be taken to Stripe&apos;s checkout to pay with your card (Visa, Mastercard, etc.). Your details are never stored on our servers.
+                </p>
 
-                {/* Submit Button */}
+                <div className="flex items-center gap-3 rounded-lg bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
+                  <Shield className="h-5 w-5 text-primary flex-shrink-0" />
+                  <span>Encrypted and secure. Powered by Stripe.</span>
+                </div>
+
                 <Button
-                  type="submit"
-                  className="w-full"
+                  type="button"
+                  className="w-full h-12 text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
                   size="lg"
-                  disabled={isSubmitting}
+                  disabled={isRedirecting}
+                  onClick={handleProceedToStripe}
                 >
-                  {isSubmitting ? (
+                  {isRedirecting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Processing Payment...
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Redirecting to Stripe...
                     </>
                   ) : (
                     <>
-                      <Lock className="w-4 h-4 mr-2" />
-                      Pay {formatCurrency(totalAmount || depositAmount, currency)}
+                      <Lock className="w-5 h-5 mr-2" />
+                      Pay {formatCurrency(displayAmount, currency)}
+                      <ChevronRight className="w-5 h-5 ml-2" />
                     </>
                   )}
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Booking Summary */}
-        <div className="md:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle>Booking Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>Destination</span>
+          {/* Booking Summary */}
+          <div className="lg:col-span-2">
+            <Card className="border shadow-md sticky top-24">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Booking summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    Destination
+                  </div>
+                  <p className="text-sm font-medium leading-snug">
+                    {destinationName}
+                  </p>
                 </div>
-                <p className="font-semibold">
-                  {typeof booking.destinationId === 'object' 
-                    ? booking.destinationId.name?.en || 'N/A'
-                    : 'N/A'}
-                </p>
-              </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>Travellers</span>
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Travellers
+                  </div>
+                  <p className="text-sm font-medium">
+                    {booking.numberOfTravellers} {booking.numberOfTravellers === 1 ? 'person' : 'people'}
+                  </p>
                 </div>
-                <p className="font-semibold">{booking.numberOfTravellers} {booking.numberOfTravellers === 1 ? 'Person' : 'People'}</p>
-              </div>
 
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Destination Deposit</span>
-                  <span className="font-semibold">
-                    {formatCurrency(depositAmount, currency)}
-                  </span>
-                </div>
-                {hasActivities && activityAmount > 0 && (
+                <div className="border-t pt-4 space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Activities</span>
-                    <span className="font-semibold">
-                      {formatCurrency(activityAmount, currency)}
+                    <span className="text-muted-foreground">Destination deposit</span>
+                    <span className="font-medium tabular-nums">
+                      {formatCurrency(depositAmount, currency)}
                     </span>
                   </div>
-                )}
-                <div className="flex justify-between text-base font-semibold pt-2 border-t">
-                  <span>Total</span>
-                  <span>{formatCurrency(totalAmount || depositAmount, currency)}</span>
+                  {hasActivities && activityAmount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Activities</span>
+                      <span className="font-medium tabular-nums">
+                        {formatCurrency(activityAmount, currency)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                    <span>Total</span>
+                    <span className="tabular-nums">{formatCurrency(displayAmount, currency)}</span>
+                  </div>
                 </div>
-              </div>
-
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Cursor IDE (local / personal MCP and settings)
+.cursor/
+
+# Local env (safety at root)
+.env
+.env.*
+!.env.example

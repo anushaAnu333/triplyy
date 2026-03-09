@@ -1,6 +1,6 @@
 // Re-export types from API modules
 export type { User, LoginCredentials, RegisterData, AuthResponse } from '@/lib/api/auth';
-export type { Destination, MultilingualText, DestinationFilters, DestinationsResponse } from '@/lib/api/destinations';
+export type { Destination, DestinationFilters, DestinationsResponse } from '@/lib/api/destinations';
 export type { Booking, CreateBookingData, CreateBookingResponse, BookingsResponse } from '@/lib/api/bookings';
 export type { AffiliateCode, Commission, AffiliateDashboard } from '@/lib/api/affiliates';
 

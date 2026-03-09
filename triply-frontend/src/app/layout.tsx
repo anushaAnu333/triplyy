@@ -14,12 +14,13 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: 'TRIPLY - Discover the World\'s Most Beautiful Places',
-  description: 'Book your dream destinations with just AED 199 deposit. Unlock your calendar for a full year of adventure. Curated travel experiences to the most stunning places on Earth.',
-  keywords: ['travel', 'booking', 'destinations', 'vacation', 'holidays', 'Maldives', 'Bali', 'Switzerland', 'travel deals'],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  title: 'TR✨PLY - Travel. Connect. Repeat.',
+  description: 'TR✨PLY is a travel community platform. Book your dream destinations with a small deposit. Unlock your calendar for a full year of adventure.',
+  keywords: ['travel', 'booking', 'destinations', 'vacation', 'holidays', 'travel community', 'Stripe', 'Tamara', 'Tabby'],
   openGraph: {
-    title: 'TRIPLY - Discover the World\'s Most Beautiful Places',
-    description: 'Book your dream destinations with just AED 199 deposit. Unlock your calendar for a full year of adventure.',
+    title: 'TR✨PLY - Travel. Connect. Repeat.',
+    description: 'TR✨PLY is a travel community platform. Book with a small deposit and travel when you\'re ready.',
     type: 'website',
   },
 };

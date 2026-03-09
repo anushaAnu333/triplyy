@@ -146,7 +146,7 @@ export function BookingModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">
-            Book {destination.name.en}
+            Book {destination.name}
           </DialogTitle>
           <DialogDescription>
             Secure your spot with a deposit of {formatCurrency(destination.depositAmount, destination.currency)}

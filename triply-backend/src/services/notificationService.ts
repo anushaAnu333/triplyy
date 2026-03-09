@@ -18,12 +18,12 @@ export const notifyDepositPaid = async (bookingId: string): Promise<void> => {
       return;
     }
 
-    const destination = booking.destinationId as unknown as { name: { en: string } };
+    const destination = booking.destinationId as unknown as { name: string };
     await sendDepositConfirmation(
       booking.userId.toString(),
       booking.bookingReference,
       booking.depositPayment.amount,
-      destination.name.en
+      destination.name
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -47,11 +47,11 @@ export const notifyBookingConfirmed = async (bookingId: string): Promise<void> =
       return;
     }
 
-    const destination = booking.destinationId as unknown as { name: { en: string } };
+    const destination = booking.destinationId as unknown as { name: string };
     await sendBookingConfirmation(
       booking.userId.toString(),
       booking.bookingReference,
-      destination.name.en,
+      destination.name,
       booking.travelDates.startDate,
       booking.travelDates.endDate
     );
@@ -127,11 +127,11 @@ export const notifyUserDatesSelected = async (bookingId: string): Promise<void> 
     }    if (!booking.travelDates.startDate || !booking.travelDates.endDate) {
       logger.error(`Travel dates not set for booking: ${bookingId}`);
       return;
-    }    const destination = booking.destinationId as unknown as { name: { en: string } };
+    }    const destination = booking.destinationId as unknown as { name: string };
     await sendDateSelectionConfirmation(
       booking.userId.toString(),
       booking.bookingReference,
-      destination.name.en,
+      destination.name,
       booking.travelDates.startDate,
       booking.travelDates.endDate
     );

@@ -333,6 +333,27 @@ export const getPendingActivities = async (
 };
 
 /**
+ * Get all activities (admin)
+ * GET /api/v1/admin/activities/all
+ */
+export const getAllActivities = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const activities = await Activity.find()
+      .populate('merchantId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .select('-__v');
+
+    successResponse(res, 'Activities retrieved successfully', activities);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Approve an activity
  * PUT /api/v1/admin/activities/:id/approve
  */

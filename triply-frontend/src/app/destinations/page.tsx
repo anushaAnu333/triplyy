@@ -56,29 +56,7 @@ export default function DestinationsPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative h-[50vh] min-h-[400px] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src="https://images.unsplash.com/photo-1488085061387-422e29b40080?w=1920"
-            alt="Destinations"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/50 to-slate-900" />
-        </div>
-
-        <div className="relative z-10 container mx-auto px-4 text-center text-white">
-          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold mb-4">
-            Explore Destinations
-          </h1>
-          <p className="text-xl text-white/80 max-w-2xl mx-auto">
-            Discover handpicked destinations for your next unforgettable adventure
-          </p>
-        </div>
-      </section>
-
+    
       {/* Search & Filters */}
       <section className="bg-white sticky top-20 z-40 border-b shadow-sm">
         <div className="container mx-auto px-4 py-4">
@@ -151,9 +129,7 @@ export default function DestinationsPage() {
               <h2 className="font-display text-2xl font-bold">
                 {isLoading ? 'Loading...' : `${filteredDestinations.length} Destinations`}
               </h2>
-              <p className="text-muted-foreground">
-                Find your perfect getaway
-              </p>
+             
             </div>
           </div>
 
@@ -187,7 +163,7 @@ export default function DestinationsPage() {
                     <div className="relative h-72 overflow-hidden">
                       <Image
                         src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
-                        alt={destination.name?.en || 'Destination'}
+                        alt={destination.name || 'Destination'}
                         fill
                         className="object-cover group-hover:scale-110 transition-transform duration-700"
                       />
@@ -228,14 +204,14 @@ export default function DestinationsPage() {
                           )}
                         </div>
                         <h3 className="font-display text-2xl font-bold">
-                          {destination.name?.en || 'Destination'}
+                          {destination.name || 'Destination'}
                         </h3>
                       </div>
                     </div>
 
                     <div className="p-6">
                       <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                        {destination.description?.en || ''}
+                        {destination.shortDescription || destination.description || ''}
                       </p>
 
                       <div className="flex items-center justify-between">

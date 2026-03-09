@@ -1,25 +1,53 @@
 import api from './axios';
 
-export interface MultilingualText {
-  en: string;
-  ar?: string;
+export interface ItineraryDay {
+  day: string;
+  route?: string;
+  highlights: string[];
+  subHighlights?: string[];
+  extra?: string;
+  checkin?: string;
+  overnight?: string;
+}
+
+export interface PricingHotelOption {
+  name: string;
+  starLabel?: string;
+  pricePerPerson: number;
+  currency: string;
+  hotels: { location: string; choices: string[] }[];
+}
+
+export interface PricingHotel {
+  validFrom?: string;
+  validTo?: string;
+  note?: string;
+  options: PricingHotelOption[];
+  optionalEntryFees?: {
+    totalEstimated: number;
+    currency: string;
+    items: string[];
+  };
+  emergencyContact?: string;
 }
 
 export interface Destination {
   _id: string;
-  name: MultilingualText;
+  name: string;
   slug: string;
-  description: MultilingualText;
-  shortDescription?: MultilingualText;
+  description: string;
+  shortDescription?: string;
   images: string[];
   thumbnailImage: string;
   country: string;
   region?: string;
   depositAmount: number;
   currency: string;
-  highlights?: MultilingualText[];
-  inclusions?: MultilingualText[];
-  exclusions?: MultilingualText[];
+  highlights?: string[];
+  itinerary?: ItineraryDay[];
+  pricingHotel?: PricingHotel;
+  inclusions?: string[];
+  exclusions?: string[];
   duration: {
     days: number;
     nights: number;

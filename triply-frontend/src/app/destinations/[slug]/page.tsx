@@ -7,17 +7,14 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { 
   MapPin, Clock, Calendar, Check, X, ArrowLeft, 
-  Users, Star, Shield, Loader2 
+  Users, Shield, Loader2, Phone, AlertCircle 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { destinationsApi } from '@/lib/api/destinations';
 import { bookingsApi } from '@/lib/api/bookings';
-import { affiliatesApi } from '@/lib/api/affiliates';
 import { activitiesApi, Activity } from '@/lib/api/activities';
 import { formatCurrency } from '@/lib/utils';
 import { BookingModal } from '@/components/booking/BookingModal';
@@ -31,9 +28,6 @@ export default function DestinationDetailPage() {
   const { toast } = useToast();
 
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [affiliateCode, setAffiliateCode] = useState('');
-  const [validatedAffiliate, setValidatedAffiliate] = useState<string | null>(null);
-  const [validatingCode, setValidatingCode] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
@@ -47,12 +41,12 @@ export default function DestinationDetailPage() {
   // Fetch activities for this destination's location
   // Try multiple location terms to find matching activities
   const { data: activitiesData } = useQuery({
-    queryKey: ['activities', destination?.country, destination?.name?.en],
+    queryKey: ['activities', destination?.country, destination?.name],
     queryFn: async () => {
       if (!destination) return null;
       
       // Extract potential location terms from destination
-      const destinationName = destination.name?.en || '';
+      const destinationName = destination.name || '';
       const country = destination.country || '';
       
       // Try to extract city name from destination name (e.g., "Dubai" from "Dubai Luxe Escape")
@@ -89,31 +83,6 @@ export default function DestinationDetailPage() {
     },
     enabled: !!destination,
   });
-
-  const validateAffiliateCode = async () => {
-    if (!affiliateCode.trim()) return;
-    
-    setValidatingCode(true);
-    try {
-      const result = await affiliatesApi.validateCode(affiliateCode);
-      if (result.isValid) {
-        setValidatedAffiliate(result.affiliateName);
-        toast({
-          title: 'Code Applied!',
-          description: `Referred by ${result.affiliateName}`,
-        });
-      }
-    } catch {
-      toast({
-        title: 'Invalid Code',
-        description: 'The affiliate code is not valid',
-        variant: 'destructive',
-      });
-      setValidatedAffiliate(null);
-    } finally {
-      setValidatingCode(false);
-    }
-  };
 
   const handleBookNow = () => {
     if (!isAuthenticated) {
@@ -167,130 +136,246 @@ export default function DestinationDetailPage() {
         </Button>
       </div>
 
-      {/* Hero Image Gallery */}
-      <section className="container mx-auto px-4 mb-8">
-        <div className="grid lg:grid-cols-2 gap-4">
-          <div className="relative h-[400px] lg:h-[500px] rounded-2xl overflow-hidden">
-            <Image
-              src={images[selectedImage]}
-              alt={destination.name.en}
-              fill
-              className="object-cover"
-              priority
-            />
-          </div>
-          {images.length > 1 && (
-            <div className="grid grid-cols-2 gap-4">
-              {images.slice(1, 5).map((img, index) => (
-                <div 
-                  key={index}
-                  className="relative h-[190px] lg:h-[240px] rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => setSelectedImage(index + 1)}
-                >
-                  <Image
-                    src={img}
-                    alt={`${destination.name.en} ${index + 2}`}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              ))}
+      {/* Hero: Image gallery + title bar below (no overlap) */}
+      <section className="relative">
+        <div className="container mx-auto px-4 pt-4">
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="relative h-[360px] lg:h-[420px] rounded-xl overflow-hidden shadow-lg">
+              <Image
+                src={images[selectedImage]}
+                alt={destination.name}
+                fill
+                className="object-cover"
+                priority
+              />
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-orange" aria-hidden />
             </div>
-          )}
+            {images.length > 1 && (
+              <div className="grid grid-cols-2 gap-3">
+                {images.slice(1, 5).map((img, index) => (
+                  <div
+                    key={index}
+                    className={`relative h-[172px] lg:h-[202px] rounded-lg overflow-hidden cursor-pointer transition-all ${selectedImage === index + 1 ? 'ring-2 ring-brand-orange ring-offset-2' : 'opacity-90 hover:opacity-100'}`}
+                    onClick={() => setSelectedImage(index + 1)}
+                  >
+                    <Image src={img} alt={`${destination.name} ${index + 2}`} fill className="object-cover" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Title bar – solid bar below image, TRIPLY theme */}
+        <div className="container mx-auto px-4 mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 p-5 rounded-xl ">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-brand-orange mb-1.5">{destination.country}</p>
+              <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
+                {destination.name}
+              </h1>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-orange/10 text-brand-orange text-xs font-medium">
+                  <Clock className="w-3 h-3" />
+                  {destination.duration.days}D / {destination.duration.nights}N
+                </span>
+                {destination.region && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs">
+                    <MapPin className="w-3 h-3" />
+                    {destination.region}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs">Private · Breakfast incl.</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Content */}
+      {/* Content: two-column layout */}
       <section className="container mx-auto px-4 pb-16">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Header */}
-            <div>
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <MapPin className="w-4 h-4" />
-                <span>{destination.country}</span>
-                {destination.region && (
-                  <>
-                    <span>•</span>
-                    <span>{destination.region}</span>
-                  </>
-                )}
-              </div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">
-                {destination.name.en}
-              </h1>
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span>{destination.duration.days} Days / {destination.duration.nights} Nights</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span>4.9 (124 reviews)</span>
-                </div>
-              </div>
+        <div className="grid lg:grid-cols-3 gap-10">
+          {/* Main content – itinerary + IE + pricing (reference layout) */}
+          <div className="lg:col-span-2 max-w-3xl">
+            {/* Day-by-Day Itinerary */}
+            <div className="mt-10 mb-5">
+              <span className="inline-block px-3 py-1.5 rounded-md bg-brand-orange/10 text-brand-orange text-[11px] font-semibold tracking-wider uppercase">Itinerary</span>
             </div>
-
-            {/* Description */}
-            <div>
-              <h2 className="font-display text-2xl font-semibold mb-4">About This Trip</h2>
-              <p className="text-muted-foreground leading-relaxed">
-                {destination.description.en}
-              </p>
-            </div>
-
-            {/* Highlights */}
-            {destination.highlights && destination.highlights.length > 0 && (
-              <div>
-                <h2 className="font-display text-2xl font-semibold mb-4">Highlights</h2>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {destination.highlights.map((highlight, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="w-4 h-4 text-primary" />
+            {destination.itinerary && destination.itinerary.length > 0 ? (
+              <div className="space-y-3">
+                {destination.itinerary.map((day, index) => {
+                  const isLastDay = index === destination.itinerary!.length - 1;
+                  const isAirportOrTransfer = /airport|transfer|departure/i.test(day.day);
+                  const isTransferDay = (isLastDay && isAirportOrTransfer) || (!day.route && day.highlights?.length <= 1 && !day.subHighlights?.length && !day.overnight);
+                  const dayNum = String(index + 1).padStart(2, '0');
+                  const dayTitle = day.day.replace(/^Day \d+[ –-]\s*/i, '').trim() || day.day;
+                  if (isTransferDay) {
+                    return (
+                      <div key={index} className="rounded-xl border border-border bg-muted/30 p-5 flex items-center gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-brand-orange/10 flex items-center justify-center text-xl">✈️</div>
+                        <div>
+                          <h3 className="font-display text-lg font-semibold text-foreground">{day.day}</h3>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {day.highlights?.length ? day.highlights.join(' · ') : day.route}
+                          </p>
+                        </div>
                       </div>
-                      <span>{highlight.en}</span>
+                    );
+                  }
+                  return (
+                    <div key={index} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex gap-4 p-5">
+                        <div className="flex-shrink-0 w-12 flex flex-col items-center">
+                          <span className="text-2xl font-bold text-brand-orange tabular-nums leading-none">{dayNum}</span>
+                          <span className="text-[9px] font-medium tracking-widest uppercase text-muted-foreground mt-1">Day</span>
+                        </div>
+                        <div>
+                          </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-display text-lg font-semibold text-foreground">{dayTitle}</h3>
+                          {day.route && <p className="text-xs text-muted-foreground mt-1">{day.route}</p>}
+                        </div>
+                      </div>
+                      <div className="px-5 pb-5 pt-0">
+                        <ul className="space-y-3 list-none p-0 m-0">
+                          {day.highlights?.map((item, i) => (
+                            <li key={i} className="flex gap-3 items-start">
+                              <span className="w-1.5 h-1.5 rounded-sm bg-brand-orange flex-shrink-0 mt-2" />
+                              <span className="text-sm text-foreground">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {day.subHighlights && day.subHighlights.length > 0 && (
+                          <ul className="mt-2 pl-5 space-y-0.5 text-sm text-muted-foreground list-none">
+                            {day.subHighlights.map((item, i) => (
+                              <li key={i} className="flex gap-2"><span className="text-brand-orange">·</span>{item}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {day.extra && <p className="mt-2 text-sm text-muted-foreground">{day.extra}</p>}
+                        {day.checkin && <p className="mt-1 text-sm text-muted-foreground"><strong className="text-foreground">Check-in:</strong> {day.checkin}</p>}
+                        {day.overnight && (
+                          <div className="mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/80 text-xs text-muted-foreground">
+                            <span aria-hidden>◐</span> {day.overnight}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-muted-foreground leading-relaxed">{destination.description}</p>
+            )}
+
+            {/* Trip highlights */}
+            {destination.highlights && destination.highlights.length > 0 && (
+              <>
+                <div className="mt-12 mb-4">
+                  <span className="inline-block px-3 py-1.5 rounded-md bg-brand-orange/10 text-brand-orange text-[11px] font-semibold tracking-wider uppercase">Highlights</span>
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  {destination.highlights.map((h, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      <span>{h}</span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Inclusions & Exclusions */}
-            <div className="grid md:grid-cols-2 gap-8">
-              {destination.inclusions && destination.inclusions.length > 0 && (
-                <div>
-                  <h3 className="font-display text-xl font-semibold mb-4 text-green-600">
-                    What's Included
-                  </h3>
-                  <ul className="space-y-2">
-                    {destination.inclusions.map((item, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm">{item.en}</span>
-                      </li>
-                    ))}
-                  </ul>
+            {/* Inclusions & Exclusions – stacked with left accent */}
+            {(destination.inclusions?.length || destination.exclusions?.length) ? (
+              <>
+                <div className="mt-12 mb-4">
+                  <span className="inline-block px-3 py-1.5 rounded-md bg-brand-orange/10 text-brand-orange text-[11px] font-semibold tracking-wider uppercase">Included &amp; Not Included</span>
                 </div>
-              )}
+                <div className="space-y-4">
+                  {destination.inclusions && destination.inclusions.length > 0 && (
+                    <div className="rounded-xl border border-border bg-card p-5 pl-5 border-l-4 border-l-green-500">
+                      <h3 className="font-display text-base font-semibold text-foreground mb-3">Included</h3>
+                      <ul className="space-y-1.5 list-none p-0 m-0 text-sm text-muted-foreground">
+                        {destination.inclusions.map((item, i) => (
+                          <li key={i} className="flex items-center gap-2"><span className="text-green-500">+</span>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {destination.exclusions && destination.exclusions.length > 0 && (
+                    <div className="rounded-xl border border-border bg-card p-5 pl-5 border-l-4 border-l-red-400">
+                      <h3 className="font-display text-base font-semibold text-foreground mb-3">Not included</h3>
+                      <ul className="space-y-1.5 list-none p-0 m-0 text-sm text-muted-foreground">
+                        {destination.exclusions.map((item, i) => (
+                          <li key={i} className="flex items-center gap-2"><span className="text-red-400">−</span>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
 
-              {destination.exclusions && destination.exclusions.length > 0 && (
-                <div>
-                  <h3 className="font-display text-xl font-semibold mb-4 text-red-600">
-                    Not Included
-                  </h3>
-                  <ul className="space-y-2">
-                    {destination.exclusions.map((item, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm">{item.en}</span>
-                      </li>
-                    ))}
-                  </ul>
+            {/* Pricing & Hotel Options */}
+            {destination.pricingHotel && destination.pricingHotel.options?.length > 0 && (
+              <>
+                <div className="mt-12 mb-4">
+                  <span className="inline-block px-3 py-1.5 rounded-md bg-brand-orange/10 text-brand-orange text-[11px] font-semibold tracking-wider uppercase">
+                    Prices &amp; Hotels{destination.pricingHotel.validFrom || destination.pricingHotel.validTo ? ` (${[destination.pricingHotel.validFrom, destination.pricingHotel.validTo].filter(Boolean).join(' – ')})` : ''}
+                  </span>
                 </div>
-              )}
-            </div>
+                {destination.pricingHotel.note && (
+                  <p className="text-sm text-muted-foreground mb-4">{destination.pricingHotel.note}</p>
+                )}
+                <div className="space-y-5">
+                  {destination.pricingHotel.options.map((option, optIndex) => (
+                    <div key={optIndex} className={`rounded-xl border overflow-hidden shadow-sm ${optIndex === 0 ? 'border-green-500/30' : 'border-brand-orange/30'}`}>
+                      <div className={`flex items-center gap-3 px-4 py-2.5 ${optIndex === 0 ? 'bg-green-500/5' : 'bg-brand-orange/5'}`}>
+                        <span className={`text-xs font-semibold uppercase ${optIndex === 0 ? 'text-green-600' : 'text-brand-orange'}`}>{option.name}</span>
+                        {option.starLabel && <span className="text-xs text-muted-foreground">— {option.starLabel}</span>}
+                      </div>
+                      <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div className="flex-shrink-0">
+                          <span className="font-display text-2xl font-bold text-foreground">{formatCurrency(option.pricePerPerson, option.currency)}</span>
+                          <span className="text-xs text-muted-foreground ml-1">/ person</span>
+                        </div>
+                        {option.hotels && option.hotels.length > 0 && (
+                          <div className="flex-1 grid sm:grid-cols-2 gap-3 text-sm">
+                            {option.hotels.map((group, gi) => (
+                              <div key={gi}>
+                                <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-1">{group.location}</p>
+                                <p className="text-muted-foreground text-xs leading-relaxed">{group.choices.join(' · ')}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {destination.pricingHotel.optionalEntryFees && (
+                  <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
+                    <p className="text-sm text-muted-foreground">Optional entry fees (est. <strong className="text-foreground">{formatCurrency(destination.pricingHotel.optionalEntryFees.totalEstimated, destination.pricingHotel.optionalEntryFees.currency)}</strong> per person):</p>
+                    <ul className="mt-2 columns-2 sm:columns-3 gap-x-4 text-xs text-muted-foreground list-disc list-inside">
+                      {destination.pricingHotel.optionalEntryFees.items.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {destination.pricingHotel?.emergencyContact && (
+                  <p className="mt-4 text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    <strong className="text-foreground">Emergency:</strong>
+                    {destination.pricingHotel.emergencyContact.split('/').map((part, i) => {
+                      const trimmed = part.trim();
+                      const numMatch = trimmed.match(/[\d+][\d\s-]*/);
+                      const tel = numMatch ? numMatch[0].replace(/\s|-/g, '') : '';
+                      return tel ? <a key={i} href={`tel:${tel}`} className="text-red-600 hover:underline">{trimmed}</a> : <span key={i}>{trimmed}</span>;
+                    })}
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Booking Sidebar */}
@@ -321,42 +406,10 @@ export default function DestinationDetailPage() {
                   </div>
                 </div>
 
-                {/* Affiliate Code */}
-                <div className="space-y-2">
-                  <Label htmlFor="affiliateCode">Have a referral code?</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="affiliateCode"
-                      placeholder="Enter code"
-                      value={affiliateCode}
-                      onChange={(e) => setAffiliateCode(e.target.value.toUpperCase())}
-                      disabled={!!validatedAffiliate}
-                    />
-                    <Button 
-                      variant="outline" 
-                      onClick={validateAffiliateCode}
-                      disabled={validatingCode || !!validatedAffiliate}
-                    >
-                      {validatingCode ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : validatedAffiliate ? (
-                        <Check className="w-4 h-4 text-green-600" />
-                      ) : (
-                        'Apply'
-                      )}
-                    </Button>
-                  </div>
-                  {validatedAffiliate && (
-                    <p className="text-sm text-green-600">
-                      Referred by {validatedAffiliate}
-                    </p>
-                  )}
-                </div>
-
                 {/* Book Button */}
                 <Button 
                   size="lg" 
-                  className="w-full text-lg py-6"
+                  className="w-full text-lg py-6 bg-brand-orange hover:bg-brand-orange/90 text-white border-0"
                   onClick={handleBookNow}
                 >
                   Book Now
@@ -376,7 +429,7 @@ export default function DestinationDetailPage() {
         <section className="container mx-auto px-4 pb-16">
           <div className="mb-8">
             <h2 className="font-display text-3xl font-bold mb-2">
-              Things to Do in {destination.name.en}
+              Things to Do in {destination.name}
             </h2>
             <p className="text-muted-foreground">
               Discover amazing activities and experiences in this destination
@@ -442,7 +495,6 @@ export default function DestinationDetailPage() {
         isOpen={showBookingModal}
         onClose={() => setShowBookingModal(false)}
         destination={destination}
-        affiliateCode={validatedAffiliate ? affiliateCode : undefined}
         activities={activitiesData?.data || []}
       />
 

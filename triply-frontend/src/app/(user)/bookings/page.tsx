@@ -140,7 +140,7 @@ export default function BookingsPage() {
                         {destination?.thumbnailImage ? (
                           <img
                             src={destination.thumbnailImage}
-                            alt={destination.name?.en || 'Destination'}
+                            alt={destination.name || 'Destination'}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -155,7 +155,7 @@ export default function BookingsPage() {
                         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                           <div>
                             <h3 className="font-display text-xl font-semibold mb-1">
-                              {destination?.name?.en || 'Destination'}
+                              {destination?.name || 'Destination'}
                             </h3>
                             <p className="text-sm text-muted-foreground font-mono">
                               {booking.bookingReference}

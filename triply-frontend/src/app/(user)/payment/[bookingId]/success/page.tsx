@@ -1,18 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Calendar, MapPin, Users, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { bookingsApi } from '@/lib/api/bookings';
+import { paymentsApi } from '@/lib/api/payments';
 import { formatCurrency } from '@/lib/utils';
 
 export default function PaymentSuccessPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const bookingId = params.bookingId as string;
+  const sessionId = searchParams.get('session_id');
+  const confirmedRef = useRef(false);
+
+  // Confirm payment from Stripe session when we have session_id (fallback when webhook didn't run)
+  useEffect(() => {
+    if (!sessionId || !bookingId || confirmedRef.current) return;
+    confirmedRef.current = true;
+    paymentsApi
+      .confirmFromSession(sessionId)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+        queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+      })
+      .catch(() => {
+        confirmedRef.current = false;
+      });
+  }, [sessionId, bookingId, queryClient]);
 
   // Fetch booking details
   const { data: booking, isLoading } = useQuery({
@@ -65,7 +85,7 @@ export default function PaymentSuccessPage() {
                 <p className="text-sm text-muted-foreground">Destination</p>
                 <p className="font-semibold">
                   {typeof booking.destinationId === 'object' 
-                    ? booking.destinationId.name?.en || 'N/A'
+                    ? booking.destinationId.name || 'N/A'
                     : 'N/A'}
                 </p>
               </div>

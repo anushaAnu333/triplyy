@@ -107,7 +107,7 @@ export default function BookingDetailPage() {
                     {destination?.thumbnailImage ? (
                       <img
                         src={destination.thumbnailImage}
-                        alt={destination.name?.en}
+                        alt={destination.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -122,7 +122,7 @@ export default function BookingDetailPage() {
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div>
                         <h1 className="font-display text-2xl md:text-3xl font-bold">
-                          {destination?.name?.en || 'Destination'}
+                          {destination?.name || 'Destination'}
                         </h1>
                         <div className="flex items-center gap-2 text-muted-foreground mt-1">
                           <MapPin className="w-4 h-4" />

@@ -1,15 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
-import { Booking, ActivityBooking, ActivityAvailability } from '../models';
+import Stripe from 'stripe';
+import { Booking, ActivityBooking } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
 import {
   createPaymentIntent,
-  handlePaymentSuccess,
   handlePaymentFailure,
-  verifyWebhookSignature,
   simulateDummyPaymentSuccess,
   simulateDummyPaymentFailure,
+  createStripeCheckoutSessionForDeposit,
+  createStripeCheckoutSessionForActivity,
+  handleCheckoutSessionCompleted,
+  retrieveStripeCheckoutSession,
 } from '../services/paymentService';
 import env from '../config/environment';
 import { notifyDepositPaid } from '../services/notificationService';
@@ -61,6 +64,149 @@ export const createIntent = async (
 };
 
 /**
+ * Create Stripe Checkout Session for deposit – returns URL to redirect user to Stripe
+ * POST /api/v1/payments/create-checkout-session
+ */
+export const createCheckoutSession = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { bookingId } = req.body;
+    const userId = req.user.userId;
+
+    const booking = await Booking.findOne({ _id: bookingId, userId });
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+    if (booking.status !== 'pending_deposit') {
+      throw new AppError('Payment has already been processed for this booking', 400);
+    }
+
+    const { url } = await createStripeCheckoutSessionForDeposit({
+      bookingId: booking._id.toString(),
+      amount: booking.depositPayment.amount,
+      currency: booking.depositPayment.currency || 'aed',
+      bookingReference: booking.bookingReference,
+    });
+
+    successResponse(res, 'Checkout session created', { url });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Confirm payment from Stripe session (success-page fallback when webhook is not received)
+ * GET /api/v1/payments/confirm-from-session?session_id=cs_xxx
+ */
+export const confirmFromSession = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const sessionId = (req.query.session_id || req.body?.session_id) as string | undefined;
+    if (!sessionId) {
+      throw new AppError('session_id is required', 400);
+    }
+    const userId = req.user.userId;
+
+    const session = await retrieveStripeCheckoutSession(sessionId);
+    const bookingId = session.metadata?.bookingId;
+    const type = session.metadata?.type;
+
+    if (!bookingId || !type) {
+      throw new AppError('Invalid session', 400);
+    }
+
+    if (type === 'deposit') {
+      const booking = await Booking.findOne({ _id: bookingId, userId });
+      if (!booking) {
+        throw new AppError('Booking not found', 404);
+      }
+      if (booking.status === 'deposit_paid') {
+        successResponse(res, 'Payment already confirmed', { status: 'deposit_paid' });
+        return;
+      }
+      await handleCheckoutSessionCompleted(session);
+      successResponse(res, 'Payment confirmed', { status: 'deposit_paid' });
+      return;
+    }
+
+    if (type === 'activity_booking') {
+      const booking = await ActivityBooking.findById(bookingId);
+      if (!booking) {
+        throw new AppError('Activity booking not found', 404);
+      }
+      const isOwner = String(booking.userId) === userId;
+      if (!isOwner) {
+        throw new AppError('Activity booking not found', 404);
+      }
+      if (booking.status === 'payment_completed' || booking.status === 'confirmed') {
+        successResponse(res, 'Payment already confirmed', { status: booking.status });
+        return;
+      }
+      await handleCheckoutSessionCompleted(session);
+      successResponse(res, 'Payment confirmed', { status: 'payment_completed' });
+      return;
+    }
+
+    throw new AppError('Invalid session type', 400);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Create Stripe Checkout Session for activity booking
+ * POST /api/v1/payments/activity-booking/create-checkout-session
+ */
+export const createActivityBookingCheckoutSession = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { bookingId } = req.body;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    let booking = await ActivityBooking.findById(bookingId).populate('activityId');
+    if (!booking) {
+      throw new AppError('Activity booking not found', 404);
+    }
+
+    const bookingUserId = String(booking.userId);
+    const currentUserId = String(userId);
+    if (userRole === 'merchant') {
+      const activity = booking.activityId as { merchantId?: string };
+      if (activity?.merchantId && String(activity.merchantId) !== currentUserId) {
+        throw new AppError('Activity booking not found', 404);
+      }
+    } else if (bookingUserId !== currentUserId) {
+      throw new AppError('Activity booking not found', 404);
+    }
+
+    if (booking.status !== 'pending_payment') {
+      throw new AppError('Payment has already been processed for this booking', 400);
+    }
+
+    const { url } = await createStripeCheckoutSessionForActivity({
+      bookingId: booking._id.toString(),
+      amount: booking.payment.amount,
+      currency: booking.payment.currency || 'aed',
+      bookingReference: booking.bookingReference,
+    });
+
+    successResponse(res, 'Checkout session created', { url });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Confirm payment (client-side confirmation)
  * POST /api/v1/payments/confirm
  */
@@ -99,7 +245,7 @@ export const confirmPayment = async (
 };
 
 /**
- * Handle payment webhook (for future payment gateway integration)
+ * Handle payment webhook (Stripe checkout.session.completed)
  * POST /api/v1/payments/webhook
  */
 export const handleWebhook = async (
@@ -108,10 +254,41 @@ export const handleWebhook = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // For dummy payment gateway, webhooks are not used
-    // This endpoint is kept for future payment gateway integration
-    logger.info('[DUMMY PAYMENT] Webhook received but not processed (dummy mode)');
-    res.status(200).json({ received: true, message: 'Webhook not processed in dummy mode' });
+    const sig = req.headers['stripe-signature'] as string | undefined;
+    const rawBody = req.body;
+
+    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET) {
+      logger.info('[DUMMY PAYMENT] Webhook received but Stripe not configured');
+      res.status(200).json({ received: true });
+      return;
+    }
+
+    if (!sig || !rawBody) {
+      res.status(400).json({ error: 'Missing signature or body' });
+      return;
+    }
+
+    const stripe = new Stripe(env.STRIPE_SECRET_KEY);
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        rawBody,
+        sig,
+        env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn('Stripe webhook signature verification failed:', msg);
+      res.status(400).json({ error: `Webhook signature verification failed: ${msg}` });
+      return;
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handleCheckoutSessionCompleted(session);
+    }
+
+    res.status(200).json({ received: true });
   } catch (error) {
     next(error);
   }

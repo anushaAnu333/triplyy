@@ -8,7 +8,14 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint src/**/*.ts",
-    "test": "jest"
+    "test": "jest",
+    "seed:destinations": "ts-node src/scripts/seedDestinations.ts",
+    "seed:georgia": "ts-node src/scripts/seedGeorgiaTour.ts",
+    "seed:sri-lanka": "ts-node src/scripts/seedSriLankaTour.ts",
+    "seed:baku-gabala": "ts-node src/scripts/seedBakuGabalaTour.ts",
+    "seed:baku-full-immersion": "ts-node src/scripts/seedBakuFullImmersionTour.ts",
+    "seed:baku-gabala-beyond": "ts-node src/scripts/seedBakuGabalaBeyondTour.ts",
+    "seed:baku-guba-shahdag": "ts-node src/scripts/seedBakuGubaShahdagTour.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -38,12 +45,14 @@
     "@types/cookie-parser": "^1.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.10.5",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.14",
+    "@types/supertest": "^7.2.0",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
@@ -58,4 +67,3 @@
     "node": ">=18.0.0"
   }
 }
-

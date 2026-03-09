@@ -68,7 +68,7 @@ const testimonials = [
     name: 'Sarah Mitchell',
     location: 'Dubai, UAE',
     image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    text: 'TRIPLY made booking our Maldives trip so easy! The deposit system gave us flexibility to choose dates that worked for everyone.',
+    text: 'TR✨PLY made booking our Maldives trip so easy! The deposit system gave us flexibility to choose dates that worked for everyone.',
     rating: 5,
   },
   {
@@ -188,9 +188,14 @@ export default function HomePage() {
                 className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-orange/20 backdrop-blur-sm border border-brand-orange/30 text-brand-orange text-sm font-semibold mb-8 transition-all duration-700 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
               >
                 <Sparkles className="w-4 h-4 animate-pulse" />
-                <span>Trusted by 10,000+ Travelers</span>
+                <span>Trusted by Travelers</span>
               </div>
 
+              <p 
+                className={`text-sm uppercase tracking-widest text-white/80 mb-2 transition-all duration-700 delay-75 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+              >
+                TR✨PLY
+              </p>
               <h1 
                 className={`text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] transition-all duration-700 delay-100 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
               >
@@ -204,9 +209,8 @@ export default function HomePage() {
               <p 
                 className={`text-xl md:text-2xl text-white/70 max-w-lg mb-10 leading-relaxed transition-all duration-700 delay-200 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
               >
-                Book your dream vacation with just{' '}
-                <span className="text-brand-orange font-bold">AED 199</span> deposit.
-                Travel anytime within a year.
+                TR✨PLY is a travel community platform where you explore destinations and reserve trips with a small deposit. Book with just{' '}
+                <span className="text-brand-orange font-bold">AED 199</span> and travel anytime within a year.
               </p>
 
               <div 
@@ -235,21 +239,6 @@ export default function HomePage() {
                 </Button>
               </div>
 
-              {/* Stats Mini */}
-              <div 
-                className={`grid grid-cols-3 gap-6 transition-all duration-700 delay-500 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
-              >
-                {[
-                  { value: '50+', label: 'Destinations' },
-                  { value: '10K+', label: 'Travelers' },
-                  { value: '4.9★', label: 'Rating' },
-                ].map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="text-3xl font-bold text-white">{stat.value}</div>
-                    <div className="text-sm text-white/50">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* Right - Floating Cards */}
@@ -347,62 +336,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Promo Banner */}
-      <section className="bg-brand-orange py-4 overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-orange via-orange-500 to-brand-orange" />
-        <div className="flex animate-marquee whitespace-nowrap relative z-10">
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="flex items-center gap-8 mx-8 text-white font-medium">
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                Limited Time Offer: 20% Off All Bookings
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-2">
-                <Award className="w-4 h-4" />
-                Rated #1 Travel Platform 2024
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-2">
-                <Heart className="w-4 h-4" />
-                Join 10,000+ Happy Travelers
-              </span>
-              <span>•</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      
 
-      {/* Stats Section */}
-      <section ref={statsRef.ref} className="py-20 bg-white relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-brand-orange/5 rounded-full -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-brand-orange/5 rounded-full translate-x-1/2 translate-y-1/2" />
-        
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
-            {[
-              { value: destinationsCount, suffix: '+', label: 'Destinations', icon: Globe },
-              { value: travelersCount, suffix: 'K+', label: 'Happy Travelers', icon: Users },
-              { value: ratingCount / 10, suffix: '', label: 'Rating', icon: Star, decimal: true },
-              { value: daysCount, suffix: '', label: 'Days Flexibility', icon: Calendar },
-            ].map((stat, index) => (
-              <div 
-                key={stat.label} 
-                className={`text-center group transition-all duration-700 ${statsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-orange/10 mb-4 group-hover:scale-110 group-hover:bg-brand-orange/20 transition-all duration-300">
-                  <stat.icon className="w-8 h-8 text-brand-orange" />
-                </div>
-                <div className="text-4xl md:text-5xl font-bold text-black mb-2">
-                  {stat.decimal ? (stat.value).toFixed(1) : stat.value}{stat.suffix}
-                </div>
-                <div className="text-gray-500 font-medium">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+   
 
       {/* Image Grid Gallery */}
       <section ref={galleryRef.ref} className="py-24 bg-gray-50">
@@ -458,47 +394,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Categories */}
-      <section ref={categoriesRef.ref} className="py-24 bg-white">
-        <div className="container mx-auto px-4">
-          <div className={`text-center mb-16 transition-all duration-700 ${categoriesRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-            <span className="inline-block text-brand-orange font-semibold text-sm uppercase tracking-wider mb-4 px-4 py-2 bg-brand-orange/10 rounded-full">
-              Browse By Category
-            </span>
-            <h2 className="text-4xl md:text-5xl font-bold text-black">
-              Find Your Perfect Trip
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            {categories.map((cat, index) => (
-              <Link 
-                key={cat.name}
-                href="/destinations"
-                className={`group transition-all duration-700 ${categoriesRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <div className="relative overflow-hidden rounded-3xl aspect-[3/4] shadow-lg group-hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2">
-                  <Image
-                    src={cat.image}
-                    alt={cat.name}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                    <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-brand-orange transition-all duration-300">
-                      <cat.icon className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-2xl font-bold mb-1">{cat.name}</h3>
-                    <p className="text-white/70 text-sm">{cat.count} Destinations</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+ 
 
       {/* Featured Destinations */}
       <section ref={featuredRef.ref} className="py-24 bg-gray-50">
@@ -532,7 +428,7 @@ export default function HomePage() {
                   <div className="relative h-72 overflow-hidden">
                     <Image
                       src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
-                      alt={destination.name?.en || 'Destination'}
+                      alt={destination.name || 'Destination'}
                       fill
                       className="object-cover group-hover:scale-110 transition-transform duration-700"
                     />
@@ -557,7 +453,7 @@ export default function HomePage() {
                         {destination.country}
                       </div>
                       <h3 className="text-2xl font-bold">
-                        {destination.name?.en || 'Destination'}
+                        {destination.name || 'Destination'}
                       </h3>
                     </div>
                   </div>
@@ -666,7 +562,7 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials */}
-      <section ref={testimonialsRef.ref} className="py-24 bg-gray-50 relative overflow-hidden">
+      {/* <section ref={testimonialsRef.ref} className="py-24 bg-gray-50 relative overflow-hidden">
         <div className="absolute top-20 left-10 text-brand-orange/10">
           <Quote className="w-48 h-48" />
         </div>
@@ -682,7 +578,7 @@ export default function HomePage() {
           </div>
 
           <div className={`max-w-4xl mx-auto relative transition-all duration-700 delay-200 ${testimonialsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-            {/* Navigation Buttons */}
+          
             <button 
               onClick={prevTestimonial}
               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-16 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all duration-300 z-20"
@@ -732,7 +628,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Dots */}
+       
             <div className="flex justify-center gap-3 mt-8">
               {testimonials.map((_, index) => (
                 <button
@@ -744,7 +640,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Final CTA - Only show if user is not already an affiliate */}
       {!isAffiliate && (
@@ -777,9 +673,13 @@ export default function HomePage() {
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="lg" className="text-lg px-10 py-7 rounded-full border-2 border-white/40 text-white hover:bg-white/10 font-medium transition-all duration-300 hover:scale-105">
-                  <Link href="/register">Create Free Account</Link>
+                <Button asChild size="lg" className="group text-lg px-10 py-7 rounded-full bg-white text-brand-orange hover:bg-white/90 shadow-2xl font-bold transition-all duration-300 hover:scale-105">
+                  <Link href="/register">
+                  Create Free Account
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </Button>
+                
               </div>
             </div>
           </div>

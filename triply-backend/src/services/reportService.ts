@@ -74,7 +74,7 @@ export const generateBookingsReport = async (
         bookingReference: booking.bookingReference,
         customerName: `${user.firstName} ${user.lastName}`,
         customerEmail: user.email,
-        destination: destination.name.en,
+        destination: typeof destination.name === 'string' ? destination.name : (destination.name as { en?: string })?.en || '',
         status: booking.status,
         depositAmount: booking.depositPayment.amount,
         paymentStatus: booking.depositPayment.paymentStatus,
