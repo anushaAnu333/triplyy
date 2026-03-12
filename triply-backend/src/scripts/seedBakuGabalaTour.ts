@@ -128,69 +128,6 @@ Pricing: From 186 USD (Budget) or 225 USD (Comfortable) per person for 8 pax. Op
     'Entrance tickets to activities & museums',
     'Anything not mentioned under inclusions',
   ],
-  pricingHotel: {
-    validFrom: '1 Jan 2026',
-    validTo: '15 Mar 2026',
-    note: 'Rates are per person for 8 passengers',
-    options: [
-      {
-        name: 'Option 1 – Budget Friendly',
-        starLabel: '3-Star Hotels',
-        pricePerPerson: 180,
-        currency: 'USD',
-        hotels: [
-          {
-            location: 'Baku Hotels (choose one)',
-            choices: [
-              'Atlas Hotel (4★)',
-              'Innab Inn Hotel (4★)',
-              'Art Passage Hotel',
-              'Ammar Grand Hotel (4★)',
-            ],
-          },
-          {
-            location: 'Guba Hotels (choose one)',
-            choices: ['Gold Hotel (3★)', 'North Hotel (3★)'],
-          },
-        ],
-      },
-      {
-        name: 'Option 2 – Comfortable',
-        starLabel: '4-Star Hotels',
-        pricePerPerson: 228,
-        currency: 'USD',
-        hotels: [
-          {
-            location: 'Baku Hotels (choose one)',
-            choices: [
-              'Grand Midway Hotel (4★)',
-              'Parkside Hotel (4★)',
-              'Arion Hotel (5★)',
-            ],
-          },
-          {
-            location: 'Guba Hotels (choose one)',
-            choices: ['Alma Bagi Hotel (4★)', 'Ilk Inn Hotel (4★)'],
-          },
-        ],
-      },
-    ],
-    optionalEntryFees: {
-      totalEstimated: 66,
-      currency: 'USD',
-      items: [
-        'Fire Temple & Fire Mountain',
-        'Funicular',
-        'Cable Car',
-        'Roller Coaster',
-        'Carpet Museum',
-        'Haydar Aliyev Museum',
-        'Taxi for Mud Volcano',
-        'Bottled Water (per day)',
-      ],
-    },
-    emergencyContact: '+994556007323 / +994515832804 (WhatsApp available)',
-  },
   isActive: true,
 };
 

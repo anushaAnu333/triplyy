@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, SlidersHorizontal, MapPin, Calendar, Star, ArrowRight, Heart, X } from 'lucide-react';
+import { Search, SlidersHorizontal, MapPin, Calendar, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -16,43 +13,60 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { destinationsApi, Destination } from '@/lib/api/destinations';
-import { formatCurrency } from '@/lib/utils';
+import { DestinationCard } from '@/components/destinations/DestinationCard';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-
-const regions = [
-  { value: 'all', label: 'All Regions' },
-  { value: 'europe', label: 'Europe' },
-  { value: 'asia', label: 'Asia' },
-  { value: 'middle-east', label: 'Middle East' },
-  { value: 'africa', label: 'Africa' },
-  { value: 'americas', label: 'Americas' },
-  { value: 'oceania', label: 'Oceania' },
-];
-
-const durations = [
-  { value: 'all', label: 'Any Duration' },
-  { value: 'short', label: '1-4 Days' },
-  { value: 'medium', label: '5-7 Days' },
-  { value: 'long', label: '8+ Days' },
-];
+import { useRouter } from 'next/navigation';
 
 export default function DestinationsPage() {
   const [search, setSearch] = useState('');
   const [region, setRegion] = useState('all');
   const [duration, setDuration] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
+  const router = useRouter();
 
   const { data: destinationsResponse, isLoading } = useQuery({
-    queryKey: ['destinations', search, region, duration],
+    queryKey: ['destinations', search],
     queryFn: () => destinationsApi.getAll({ search }),
   });
 
   const destinations = destinationsResponse?.data || [];
 
-  const filteredDestinations = destinations.filter((dest: Destination) => {
-    // Apply additional client-side filters if needed
-    return true;
-  });
+  // Derive region options from available destinations (unique countries)
+  const regions = useMemo(() => {
+    const options = [{ value: 'all', label: 'All Regions' }];
+    const countries = Array.from(new Set(destinations.map((d) => d.country).filter(Boolean))).sort();
+    countries.forEach((country) => options.push({ value: country, label: country }));
+    return options;
+  }, [destinations]);
+
+  // Derive duration options from available destinations (unique "X Days / Y Nights")
+  const durations = useMemo(() => {
+    const options = [{ value: 'all', label: 'Any Duration' }];
+    const set = new Set<string>();
+    destinations.forEach((d) => {
+      if (d.duration?.days != null && d.duration?.nights != null) {
+        set.add(`${d.duration.days}D / ${d.duration.nights}N`);
+      }
+    });
+    Array.from(set)
+      .sort()
+      .forEach((label) => {
+        const value = label.replace(/\s*\/\s*/, '-').toLowerCase();
+        options.push({ value, label });
+      });
+    return options;
+  }, [destinations]);
+
+  const filteredDestinations = useMemo(() => {
+    return destinations.filter((dest: Destination) => {
+      if (region !== 'all' && dest.country !== region) return false;
+      if (duration !== 'all') {
+        const destLabel = `${dest.duration?.days ?? 0}D / ${dest.duration?.nights ?? 0}N`;
+        const durationValue = destLabel.replace(/\s*\/\s*/, '-').toLowerCase();
+        if (durationValue !== duration) return false;
+      }
+      return true;
+    });
+  }, [destinations, region, duration]);
 
   return (
     <div className="min-h-screen">
@@ -107,14 +121,6 @@ export default function DestinationsPage() {
                 </SelectContent>
               </Select>
 
-              <Button 
-                variant="outline" 
-                className="h-12 rounded-full px-6"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <SlidersHorizontal className="w-4 h-4 mr-2" />
-                More Filters
-              </Button>
             </div>
           </div>
         </div>
@@ -154,85 +160,12 @@ export default function DestinationsPage() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredDestinations.map((destination: Destination) => (
-                <Link 
-                  key={destination._id} 
-                  href={`/destinations/${destination.slug}`}
-                  className="group"
-                >
-                  <Card className="overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 bg-white h-full">
-                    <div className="relative h-72 overflow-hidden">
-                      <Image
-                        src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
-                        alt={destination.name || 'Destination'}
-                        fill
-                        className="object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                      
-                      {/* Favorite Button */}
-                      <button 
-                        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors group/btn"
-                        onClick={(e) => { e.preventDefault(); }}
-                      >
-                        <Heart className="w-5 h-5 text-slate-400 group-hover/btn:text-triply-coral transition-colors" />
-                      </button>
-
-                      {/* Featured Badge */}
-                      {destination.isFeatured && (
-                        <div className="absolute top-4 left-4 px-3 py-1.5 bg-brand-orange text-white text-xs font-semibold rounded-full">
-                          ✨ Featured
-                        </div>
-                      )}
-
-                      {/* Price */}
-                      <div className="absolute bottom-4 right-4">
-                        <div className="px-4 py-2 bg-white/95 backdrop-blur-sm rounded-full shadow-lg">
-                          <span className="text-sm text-gray-500">From </span>
-                          <span className="font-bold text-black">
-                            {formatCurrency(destination.depositAmount || 199, destination.currency || 'AED')}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Location Info */}
-                      <div className="absolute bottom-4 left-4 text-white">
-                        <div className="flex items-center gap-1 text-sm text-white/80 mb-1">
-                          <MapPin className="w-4 h-4" />
-                          {destination.country}
-                          {destination.region && (
-                            <span className="text-white/60">• {destination.region}</span>
-                          )}
-                        </div>
-                        <h3 className="font-display text-2xl font-bold">
-                          {destination.name || 'Destination'}
-                        </h3>
-                      </div>
-                    </div>
-
-                    <div className="p-6">
-                      <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                        {destination.shortDescription || destination.description || ''}
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {destination.duration?.days || 0}D / {destination.duration?.nights || 0}N
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                            4.9
-                          </span>
-                        </div>
-                        <div className="flex items-center text-brand-orange font-semibold group-hover:translate-x-1 transition-transform">
-                          View
-                          <ArrowRight className="w-4 h-4 ml-1" />
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
+                <DestinationCard
+                  key={destination._id}
+                  destination={destination}
+                  variant="full"
+                  ctaText="View"
+                />
               ))}
             </div>
           )}
@@ -240,7 +173,7 @@ export default function DestinationsPage() {
       </section>
 
       {/* CTA Banner */}
-      <section className="py-16 bg-brand-orange">
+      <section className="py-11 bg-brand-orange">
         <div className="container mx-auto px-4 text-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Can't find what you're looking for?
@@ -250,6 +183,7 @@ export default function DestinationsPage() {
           </p>
           <Button 
             size="lg" 
+            onClick={() => router.push('/contact')}
             className="bg-white text-brand-orange hover:bg-white/90 rounded-full px-8 font-bold"
           >
             Contact Us

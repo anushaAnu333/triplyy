@@ -14,18 +14,26 @@ export interface UploadResult {
   publicId: string;
 }
 
+export interface UploadImageOptions {
+  /** If true, store at full resolution with high quality (for destination/hero images). Default false = 1200x800 limit + auto quality. */
+  highQuality?: boolean;
+}
+
 /**
  * Upload a single image to Cloudinary
  * @param filePath - Path to the file (from multer)
  * @param folder - Folder name in Cloudinary (optional)
+ * @param options - highQuality: skip resize/compression to preserve clarity (for destination images)
  * @returns Upload result with URL and public ID
  */
 export const uploadImage = async (
   filePath: string,
-  folder = 'triply/activities'
+  folder = 'triply/activities',
+  options: UploadImageOptions = {}
 ): Promise<UploadResult> => {
   const fs = require('fs');
-  
+  const { highQuality = false } = options;
+
   try {
     // Check if file exists
     if (!fs.existsSync(filePath)) {
@@ -41,20 +49,30 @@ export const uploadImage = async (
       throw new Error(errorMsg);
     }
 
-    logger.info(`Uploading to Cloudinary: ${filePath}`);
+    logger.info(`Uploading to Cloudinary: ${filePath} (highQuality: ${highQuality})`);
 
-    const result = await cloudinary.uploader.upload(filePath, {
+    const uploadOptions: Record<string, unknown> = {
       folder,
       resource_type: 'image',
-      transformation: [
+    };
+
+    if (highQuality) {
+      // Preserve clarity: store at original resolution, no resize. Best for destination/hero images.
+      uploadOptions.quality = 'auto:best';
+      // No transformation = image stored and delivered as uploaded (full clarity)
+    } else {
+      // Default: smaller size for activities/list thumbnails
+      uploadOptions.transformation = [
         {
           width: 1200,
           height: 800,
           crop: 'limit',
           quality: 'auto',
         },
-      ],
-    });
+      ];
+    }
+
+    const result = await cloudinary.uploader.upload(filePath, uploadOptions);
 
     logger.info(`Successfully uploaded to Cloudinary: ${result.secure_url}`);
 

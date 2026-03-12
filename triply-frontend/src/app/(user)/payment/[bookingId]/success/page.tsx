@@ -94,7 +94,7 @@ export default function PaymentSuccessPage() {
             <div className="flex items-start gap-3">
               <Users className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <p className="text-sm text-muted-foreground">Number of Travellers</p>
+                <p className="text-sm text-muted-foreground">Number of Travellers (12+ years)</p>
                 <p className="font-semibold">
                   {booking.numberOfTravellers} {booking.numberOfTravellers === 1 ? 'Person' : 'People'}
                 </p>

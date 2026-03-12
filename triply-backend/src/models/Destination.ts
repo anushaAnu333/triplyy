@@ -5,35 +5,21 @@ interface Duration {
   nights: number;
 }
 
+export interface IItineraryPointGroup {
+  text: string;
+  subPoints: string[];
+}
+
 export interface IItineraryDay {
   day: string;
   route?: string;
   highlights: string[];
   subHighlights?: string[];
+  /** Point → sub points (one point with its sub points). When set, used for display instead of highlights/subHighlights. */
+  pointGroups?: IItineraryPointGroup[];
   extra?: string;
   checkin?: string;
   overnight?: string;
-}
-
-export interface IPricingHotelOption {
-  name: string;
-  starLabel?: string;
-  pricePerPerson: number;
-  currency: string;
-  hotels: { location: string; choices: string[] }[];
-}
-
-export interface IPricingHotel {
-  validFrom?: string;
-  validTo?: string;
-  note?: string;
-  options: IPricingHotelOption[];
-  optionalEntryFees?: {
-    totalEstimated: number;
-    currency: string;
-    items: string[];
-  };
-  emergencyContact?: string;
 }
 
 export interface IDestination extends Document {
@@ -53,7 +39,6 @@ export interface IDestination extends Document {
   exclusions: string[];
   duration: Duration;
   itinerary?: IItineraryDay[];
-  pricingHotel?: IPricingHotel;
   calendarValidityDays?: number;
   isActive: boolean;
   createdAt: Date;
@@ -118,36 +103,17 @@ const destinationSchema = new Schema<IDestination>(
         route: { type: String },
         highlights: [{ type: String }],
         subHighlights: [{ type: String }],
+        pointGroups: [
+          {
+            text: { type: String },
+            subPoints: [{ type: String }],
+          },
+        ],
         extra: { type: String },
         checkin: { type: String },
         overnight: { type: String },
       },
     ],
-    pricingHotel: {
-      validFrom: { type: String },
-      validTo: { type: String },
-      note: { type: String },
-      options: [
-        {
-          name: { type: String },
-          starLabel: { type: String },
-          pricePerPerson: { type: Number },
-          currency: { type: String },
-          hotels: [
-            {
-              location: { type: String },
-              choices: [{ type: String }],
-            },
-          ],
-        },
-      ],
-      optionalEntryFees: {
-        totalEstimated: { type: Number },
-        currency: { type: String },
-        items: [{ type: String }],
-      },
-      emergencyContact: { type: String },
-    },
     calendarValidityDays: {
       type: Number,
       min: [1, 'Calendar validity must be at least 1 day'],

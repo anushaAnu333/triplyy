@@ -4,11 +4,12 @@ import fs from 'fs';
 import { Request } from 'express';
 import AppError from './AppError';
 
-// Create uploads directory if it doesn't exist
+// Create uploads directories if they don't exist
 const uploadDir = path.join(process.cwd(), 'uploads', 'activities');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const destinationUploadDir = path.join(process.cwd(), 'uploads', 'destinations');
+[uploadDir, destinationUploadDir].forEach((dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
 
 // Configure storage
 const storage = multer.diskStorage({
@@ -35,6 +36,16 @@ const fileFilter = (
   }
 };
 
+const destinationStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, destinationUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `dest-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
 // Configure multer
 export const uploadActivityImages = multer({
   storage,
@@ -42,6 +53,15 @@ export const uploadActivityImages = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max file size
     files: 3, // Max 3 files
+  },
+});
+
+export const uploadDestinationImages = multer({
+  storage: destinationStorage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 5,
   },
 });
 

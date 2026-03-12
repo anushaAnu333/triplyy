@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { 
   MapPin, Clock, Calendar, Check, X, ArrowLeft, 
-  Users, Shield, Loader2, Phone, AlertCircle 
+  Users, Shield, Loader2, Phone 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -140,25 +140,26 @@ export default function DestinationDetailPage() {
       <section className="relative">
         <div className="container mx-auto px-4 pt-4">
           <div className="grid lg:grid-cols-2 gap-4">
-            <div className="relative h-[360px] lg:h-[420px] rounded-xl overflow-hidden shadow-lg">
+            <div className="relative h-[360px] lg:h-[420px] rounded-xl overflow-hidden">
               <Image
                 src={images[selectedImage]}
                 alt={destination.name}
                 fill
                 className="object-cover"
                 priority
+                quality={95}
+                sizes="(max-width: 1024px) 100vw, 50vw"
               />
-              <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-orange" aria-hidden />
             </div>
             {images.length > 1 && (
               <div className="grid grid-cols-2 gap-3">
                 {images.slice(1, 5).map((img, index) => (
                   <div
                     key={index}
-                    className={`relative h-[172px] lg:h-[202px] rounded-lg overflow-hidden cursor-pointer transition-all ${selectedImage === index + 1 ? 'ring-2 ring-brand-orange ring-offset-2' : 'opacity-90 hover:opacity-100'}`}
+                    className={`relative h-[172px] lg:h-[202px] rounded-lg overflow-hidden cursor-pointer ${selectedImage === index + 1 ? 'ring-2 ring-brand-orange ring-offset-2' : ''}`}
                     onClick={() => setSelectedImage(index + 1)}
                   >
-                    <Image src={img} alt={`${destination.name} ${index + 2}`} fill className="object-cover" />
+                    <Image src={img} alt={`${destination.name} ${index + 2}`} fill className="object-cover" quality={90} sizes="200px" />
                   </div>
                 ))}
               </div>
@@ -205,7 +206,8 @@ export default function DestinationDetailPage() {
                 {destination.itinerary.map((day, index) => {
                   const isLastDay = index === destination.itinerary!.length - 1;
                   const isAirportOrTransfer = /airport|transfer|departure/i.test(day.day);
-                  const isTransferDay = (isLastDay && isAirportOrTransfer) || (!day.route && day.highlights?.length <= 1 && !day.subHighlights?.length && !day.overnight);
+                  const usePointGroups = day.pointGroups?.length && day.pointGroups.some((g) => g.text || (g.subPoints?.length ?? 0) > 0);
+                  const isTransferDay = (isLastDay && isAirportOrTransfer) || (!day.route && !usePointGroups && (!day.highlights?.length || day.highlights.length <= 1) && !day.subHighlights?.length && !day.overnight);
                   const dayNum = String(index + 1).padStart(2, '0');
                   const dayTitle = day.day.replace(/^Day \d+[ –-]\s*/i, '').trim() || day.day;
                   if (isTransferDay) {
@@ -228,28 +230,49 @@ export default function DestinationDetailPage() {
                           <span className="text-2xl font-bold text-brand-orange tabular-nums leading-none">{dayNum}</span>
                           <span className="text-[9px] font-medium tracking-widest uppercase text-muted-foreground mt-1">Day</span>
                         </div>
-                        <div>
-                          </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-display text-lg font-semibold text-foreground">{dayTitle}</h3>
-                          {day.route && <p className="text-xs text-muted-foreground mt-1">{day.route}</p>}
                         </div>
                       </div>
                       <div className="px-5 pb-5 pt-0">
-                        <ul className="space-y-3 list-none p-0 m-0">
-                          {day.highlights?.map((item, i) => (
-                            <li key={i} className="flex gap-3 items-start">
-                              <span className="w-1.5 h-1.5 rounded-sm bg-brand-orange flex-shrink-0 mt-2" />
-                              <span className="text-sm text-foreground">{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        {day.subHighlights && day.subHighlights.length > 0 && (
-                          <ul className="mt-2 pl-5 space-y-0.5 text-sm text-muted-foreground list-none">
-                            {day.subHighlights.map((item, i) => (
-                              <li key={i} className="flex gap-2"><span className="text-brand-orange">·</span>{item}</li>
+                        {usePointGroups ? (
+                          <ul className="space-y-3 list-none p-0 m-0">
+                            {day.pointGroups!.map((group, gi) => (
+                              <li key={gi}>
+                                {group.text && (
+                                  <div className="flex gap-3 items-start">
+                                    <span className="w-1.5 h-1.5 rounded-sm bg-brand-orange flex-shrink-0 mt-2" />
+                                    <span className="text-sm text-foreground">{group.text}</span>
+                                  </div>
+                                )}
+                                {group.subPoints?.length ? (
+                                  <ul className="mt-1 pl-5 space-y-0.5 text-sm text-muted-foreground list-none">
+                                    {group.subPoints.map((sp, si) => (
+                                      <li key={si} className="flex gap-2"><span className="text-brand-orange">·</span>{sp}</li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </li>
                             ))}
                           </ul>
+                        ) : (
+                          <>
+                            <ul className="space-y-3 list-none p-0 m-0">
+                              {day.highlights?.map((item, i) => (
+                                <li key={i} className="flex gap-3 items-start">
+                                  <span className="w-1.5 h-1.5 rounded-sm bg-brand-orange flex-shrink-0 mt-2" />
+                                  <span className="text-sm text-foreground">{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            {day.subHighlights && day.subHighlights.length > 0 && (
+                              <ul className="mt-2 pl-5 space-y-0.5 text-sm text-muted-foreground list-none">
+                                {day.subHighlights.map((item, i) => (
+                                  <li key={i} className="flex gap-2"><span className="text-brand-orange">·</span>{item}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </>
                         )}
                         {day.extra && <p className="mt-2 text-sm text-muted-foreground">{day.extra}</p>}
                         {day.checkin && <p className="mt-1 text-sm text-muted-foreground"><strong className="text-foreground">Check-in:</strong> {day.checkin}</p>}
@@ -315,67 +338,6 @@ export default function DestinationDetailPage() {
               </>
             ) : null}
 
-            {/* Pricing & Hotel Options */}
-            {destination.pricingHotel && destination.pricingHotel.options?.length > 0 && (
-              <>
-                <div className="mt-12 mb-4">
-                  <span className="inline-block px-3 py-1.5 rounded-md bg-brand-orange/10 text-brand-orange text-[11px] font-semibold tracking-wider uppercase">
-                    Prices &amp; Hotels{destination.pricingHotel.validFrom || destination.pricingHotel.validTo ? ` (${[destination.pricingHotel.validFrom, destination.pricingHotel.validTo].filter(Boolean).join(' – ')})` : ''}
-                  </span>
-                </div>
-                {destination.pricingHotel.note && (
-                  <p className="text-sm text-muted-foreground mb-4">{destination.pricingHotel.note}</p>
-                )}
-                <div className="space-y-5">
-                  {destination.pricingHotel.options.map((option, optIndex) => (
-                    <div key={optIndex} className={`rounded-xl border overflow-hidden shadow-sm ${optIndex === 0 ? 'border-green-500/30' : 'border-brand-orange/30'}`}>
-                      <div className={`flex items-center gap-3 px-4 py-2.5 ${optIndex === 0 ? 'bg-green-500/5' : 'bg-brand-orange/5'}`}>
-                        <span className={`text-xs font-semibold uppercase ${optIndex === 0 ? 'text-green-600' : 'text-brand-orange'}`}>{option.name}</span>
-                        {option.starLabel && <span className="text-xs text-muted-foreground">— {option.starLabel}</span>}
-                      </div>
-                      <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="flex-shrink-0">
-                          <span className="font-display text-2xl font-bold text-foreground">{formatCurrency(option.pricePerPerson, option.currency)}</span>
-                          <span className="text-xs text-muted-foreground ml-1">/ person</span>
-                        </div>
-                        {option.hotels && option.hotels.length > 0 && (
-                          <div className="flex-1 grid sm:grid-cols-2 gap-3 text-sm">
-                            {option.hotels.map((group, gi) => (
-                              <div key={gi}>
-                                <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-1">{group.location}</p>
-                                <p className="text-muted-foreground text-xs leading-relaxed">{group.choices.join(' · ')}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {destination.pricingHotel.optionalEntryFees && (
-                  <div className="mt-5 rounded-xl border border-border bg-muted/20 p-4">
-                    <p className="text-sm text-muted-foreground">Optional entry fees (est. <strong className="text-foreground">{formatCurrency(destination.pricingHotel.optionalEntryFees.totalEstimated, destination.pricingHotel.optionalEntryFees.currency)}</strong> per person):</p>
-                    <ul className="mt-2 columns-2 sm:columns-3 gap-x-4 text-xs text-muted-foreground list-disc list-inside">
-                      {destination.pricingHotel.optionalEntryFees.items.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {destination.pricingHotel?.emergencyContact && (
-                  <p className="mt-4 text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
-                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                    <strong className="text-foreground">Emergency:</strong>
-                    {destination.pricingHotel.emergencyContact.split('/').map((part, i) => {
-                      const trimmed = part.trim();
-                      const numMatch = trimmed.match(/[\d+][\d\s-]*/);
-                      const tel = numMatch ? numMatch[0].replace(/\s|-/g, '') : '';
-                      return tel ? <a key={i} href={`tel:${tel}`} className="text-red-600 hover:underline">{trimmed}</a> : <span key={i}>{trimmed}</span>;
-                    })}
-                  </p>
-                )}
-              </>
-            )}
           </div>
 
           {/* Booking Sidebar */}
@@ -440,20 +402,19 @@ export default function DestinationDetailPage() {
             {activitiesData.data.map((activity) => (
               <Card
                 key={activity._id}
-                className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer"
+                className="overflow-hidden cursor-pointer"
               >
                 <div className="relative h-48 overflow-hidden">
                   <img
                     src={activity.photos[0] || '/placeholder-activity.jpg'}
                     alt={activity.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4">
+                  <div className="absolute bottom-4 left-4 right-4 drop-shadow-md">
                     <h3 className="font-semibold text-white text-lg mb-1 line-clamp-1">
                       {activity.title}
                     </h3>
-                    <p className="text-white/80 text-sm flex items-center gap-1">
+                    <p className="text-white text-sm flex items-center gap-1 drop-shadow-sm">
                       <MapPin className="h-3 w-3" />
                       {activity.location}
                     </p>

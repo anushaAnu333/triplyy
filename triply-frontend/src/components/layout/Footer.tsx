@@ -41,16 +41,12 @@ export function Footer() {
   }
 
   return (
-    <footer className="bg-black text-white">
+    <footer className="bg-black text-white ">
    
 
       {/* Main Footer */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-12 border-b border-white/10 pb-12">
-          {/* Brand Column */}
-          <div className="lg:col-span-2">
-          
-          <Link href="/" className="">
+      <div className="container mx-auto  ">
+      <Link href="/" className="">
               <Image
                 src="/images/triply-logo.png"
                 alt="TRIPLY - Travel. Connect. Repeat."
@@ -59,10 +55,16 @@ export function Footer() {
                 className="h-20 w-auto object-contain"
               />
             </Link>
+        <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-12  pb-12">
+          {/* Brand Column */}
+          <div className="lg:col-span-2">
+          
+         
             <p className="text-white/60 mb-6 leading-relaxed">
               Your trusted travel partner for unforgettable adventures. 
               Book with just AED 199 deposit and travel when you're ready.
             </p>
+           
             <div className="flex gap-4">
               {socialLinks.map((social) => (
                 <a

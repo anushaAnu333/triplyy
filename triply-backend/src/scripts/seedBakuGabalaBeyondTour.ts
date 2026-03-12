@@ -8,67 +8,82 @@ import env from '../config/environment';
  * Seeds a single destination (upserts by slug).
  */
 const bakuGabalaBeyondTour = {
-  name: '4 Nights / 5 Days – Baku, Gabala & Beyond',
-  slug: '4-nights-5-days-baku-gabala-beyond',
-  shortDescription: 'Baku city tour, Gabala (Tufandag, Seven Beauties, Nohur Lake), Gobustan & Absheron (mud volcanoes, Fire Temple, Heydar Aliyev). 3 nights Baku, 1 night Gabala.',
-  description: `Day 1 – Arrival & Baku City Tour: Airport meet & greet, Highland Park (Parliament, Flame Towers, Alley of Martyrs), Little Venice, Daniz Mall or Carpet Museum, Old City (Maiden Tower, Shirvanshahs), Nizami Street. Overnight Baku.
+  name: 'Baku, Gabala & Beyond',
+  slug: 'baku-gabala-beyond',
+  shortDescription:
+    '4 Nights / 5 Days · 🏙️ 3 Nights Baku · 🏔️ 1 Night Gabala · 🚐 Private Transport · 🍳 Breakfast Included · 👤 Not a Group Tour',
+  description: `MB Travel Azerbaijan · Private Tour
+4 Nights / 5 Days — Baku, Gabala & Beyond
 
-Day 2 – Baku → Gabala (~3.5h): Shamakhi Juma Mosque, Local Winery, Seven Beauties Waterfall, Nohur Lake, Tufandag Mountain Resort (cable cars, skiing seasonal Dec 20 – Mar 1), Honey House. Overnight Gabala.
+Contact: MB Travel Azerbaijan | +994515832804 | mbtravelaz.com
 
-Day 3 – Gabala → Baku: Scenic drive back to Baku (~3.5 hours). Overnight Baku.
+🏙️ 3 Nights Baku
+🏔️ 1 Night Gabala
+🚐 Private Transport
+🍳 Breakfast Included
+👤 Not a Group Tour
 
-Day 4 – Gobustan & Absheron Peninsula: Mud Volcanoes, Gobustan National Park (rock carvings, nature museum), Bibi Heybat Mosque, First Drilled Oil Well, Ateshgah Fire Temple, Yanar Dag (Burning Mountain), Heydar Aliyev Center. Overnight Baku.
-
-Day 5 – Transfer to airport (3 hours before flight).
-
-Pricing: From 174 USD (Budget) or 220 USD (Comfortable) per person for 8 pax. Optional entry fees ~66 USD. Emergency: +994556007323 / +994515832804 (WhatsApp).`,
+Emergency contact: +994556007323 / +994515832804 (WhatsApp available).`,
   country: 'Azerbaijan',
   region: 'Baku, Gabala',
   duration: { days: 5, nights: 4 },
   depositAmount: 199,
   currency: 'AED',
-  thumbnailImage:
-    'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800',
+  thumbnailImage: 'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800',
   images: [
     'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=1200',
     'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1200',
     'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=1200',
   ],
   highlights: [
-    'Baku: Highland Park, Flame Towers, Old City (Maiden Tower, Shirvanshahs)',
-    'Little Venice & Nizami Street',
-    'Gabala: Tufandag Resort, Seven Beauties Waterfall, Nohur Lake, Honey House',
-    'Gobustan & Absheron: Mud Volcanoes, Fire Temple, Yanar Dag, Heydar Aliyev Center',
+    '3 Nights Baku',
+    '1 Night Gabala',
+    'Private Transport',
+    'Breakfast Included',
+    'Not a Group Tour',
   ],
   itinerary: [
     {
-      day: 'Day 1 – Arrival & Baku City Tour',
+      day: '01 — Arrival & Baku City Tour',
       highlights: [
-        'Airport meet & greet',
+        'Airport meet & greet + city exploration',
         'Highland Park',
         'Little Venice',
         'Daniz Mall or Carpet Museum',
         'Old City (İçərişəhər)',
         'Nizami Street (Fountain Square)',
       ],
-      subHighlights: [
-        'Parliament Building',
-        'Flame Towers',
-        'Alley of Martyrs',
-        'Scenic boat tour',
-        'Shopping',
-        'Azerbaijan carpet heritage',
-        'Maiden Tower',
-        'Palace of the Shirvanshahs',
-        'Cafés',
-        'Boutiques',
-        'Evening atmosphere',
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Airport meet & greet + city exploration. Your driver meets you at the airport with a nameplate. Emergency: +994556007323 / +994515832804 (WhatsApp).',
+          subPoints: [],
+        },
+        {
+          text: 'Highland Park',
+          subPoints: ['Panoramic city views — Parliament Building, Flame Towers, and the Alley of Martyrs.'],
+        },
+        {
+          text: 'Little Venice',
+          subPoints: ['Charming canal district with a scenic boat tour.'],
+        },
+        {
+          text: 'Daniz Mall or Carpet Museum',
+          subPoints: ["Modern shopping or Azerbaijan's legendary carpet-weaving heritage — your choice."],
+        },
+        {
+          text: 'Old City (İçərişəhər)',
+          subPoints: ['UNESCO World Heritage Site — Maiden Tower and the Palace of the Shirvanshahs.'],
+        },
+        {
+          text: 'Nizami Street (Fountain Square)',
+          subPoints: ["Baku's lively pedestrian boulevard — cafés, boutiques, vibrant evenings."],
+        },
       ],
       overnight: 'Baku',
     },
     {
-      day: 'Day 2 – Baku → Gabala City Tour',
-      route: 'Transfer ~3.5 hours',
+      day: '02 — Baku → Gabala City Tour',
       highlights: [
         'Shamakhi Juma Mosque',
         'Local Winery',
@@ -77,20 +92,53 @@ Pricing: From 174 USD (Budget) or 220 USD (Comfortable) per person for 8 pax. Op
         'Tufandag Mountain Resort',
         'Honey House',
       ],
-      subHighlights: [
-        'Cable cars',
-        'Skiing (seasonal Dec 20 – Mar 1)',
-        'Honey degustation',
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: "Drive northwest into the lush Caucasus foothills to reach Gabala — Azerbaijan's mountain jewel. Transfer: ~3.5 hours.",
+          subPoints: [],
+        },
+        {
+          text: 'Shamakhi Juma Mosque',
+          subPoints: ['One of the oldest and most beautiful mosques in the South Caucasus.'],
+        },
+        {
+          text: 'Local Winery',
+          subPoints: ['Visit a traditional Azerbaijani wine yard along the scenic route.'],
+        },
+        {
+          text: 'Seven Beauties Waterfall',
+          subPoints: ['A spectacular series of waterfalls in the Gabala mountains — a natural wonder.'],
+        },
+        {
+          text: 'Nohur Lake',
+          subPoints: ['Serene alpine lake surrounded by forested mountains — stunning reflections.'],
+        },
+        {
+          text: 'Tufandag Mountain Resort',
+          subPoints: ['Cable cars and (seasonal Dec 20 – Mar 1) skiing in the Great Caucasus.'],
+        },
+        {
+          text: 'Honey House',
+          subPoints: ["Free degustation of Azerbaijan's famous mountain honey varieties."],
+        },
       ],
       overnight: 'Gabala',
     },
     {
-      day: 'Day 3 – Gabala → Baku Transfer',
-      highlights: ['Scenic drive back to Baku (~3.5 hours)'],
+      day: '03 — Gabala → Baku Transfer',
+      highlights: ['Scenic return drive to Baku (~3.5 hours). Rest and enjoy the city in the evening.'],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Scenic return drive to Baku (~3.5 hours). Rest and enjoy the city in the evening.',
+          subPoints: [],
+        },
+      ],
       overnight: 'Baku',
     },
     {
-      day: 'Day 4 – Gobustan & Absheron Peninsula Tour',
+      day: '04 — Gobustan & Absheron Peninsula Tour',
       highlights: [
         'Mud Volcanoes',
         'Gobustan National Park',
@@ -100,17 +148,52 @@ Pricing: From 174 USD (Budget) or 220 USD (Comfortable) per person for 8 pax. Op
         'Yanar Dag (Burning Mountain)',
         'Heydar Aliyev Center',
       ],
-      subHighlights: [
-        '40,000-year-old rock carvings',
-        'Nature museum',
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'A full day of ancient geology, sacred fire temples, and iconic modern architecture around Baku. Full-day Baku highlights.',
+          subPoints: [],
+        },
+        {
+          text: 'Mud Volcanoes',
+          subPoints: ['Azerbaijan holds one-third of the world\'s mud volcanoes — an otherworldly landscape.'],
+        },
+        {
+          text: 'Gobustan National Park',
+          subPoints: ['UNESCO World Heritage Site with 40,000-year-old rock carvings and a nature museum.'],
+        },
+        {
+          text: 'Bibi Heybat Mosque',
+          subPoints: ['Beautiful historic mosque on the shores of the Caspian Sea.'],
+        },
+        {
+          text: 'First Drilled Oil Well',
+          subPoints: ["The world's first industrially drilled oil well — Azerbaijan's landmark contribution to history."],
+        },
+        {
+          text: 'Ateshgah Fire Temple',
+          subPoints: ['Medieval fire-worshippers\' temple fueled by natural gas — a UNESCO-nominated site.'],
+        },
+        {
+          text: 'Yanar Dag (Burning Mountain)',
+          subPoints: ['A hillside continuously ablaze for decades — one of Azerbaijan\'s iconic natural wonders.'],
+        },
+        {
+          text: 'Heydar Aliyev Center',
+          subPoints: ["Zaha Hadid's breathtaking architectural masterpiece — premier cultural exhibitions."],
+        },
       ],
       overnight: 'Baku',
     },
     {
-      day: 'Day 5 – Baku → Airport Transfer',
-      highlights: [
-        'Hotel pickup',
-        'Transfer to airport (3 hours before flight)',
+      day: '05 — Baku to Airport Transfer',
+      highlights: ['Your driver collects you from the hotel 3 hours before your flight. Safe travels!'],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Your driver collects you from the hotel 3 hours before your flight. Safe travels!',
+          subPoints: [],
+        },
       ],
     },
   ],
@@ -128,73 +211,6 @@ Pricing: From 174 USD (Budget) or 220 USD (Comfortable) per person for 8 pax. Op
     'Entrance tickets to activities & museums',
     'Anything not mentioned under inclusions',
   ],
-  pricingHotel: {
-    validFrom: '1 Jan 2026',
-    validTo: '15 Mar 2026',
-    note: 'Rates are per person for 8 passengers',
-    options: [
-      {
-        name: 'Option 1 – Budget Friendly',
-        starLabel: '3-Star Hotels',
-        pricePerPerson: 174,
-        currency: 'USD',
-        hotels: [
-          {
-            location: 'Baku Hotels (choose one)',
-            choices: [
-              'Atlas Hotel (4★)',
-              'Innab Inn Hotel (4★)',
-              'Art Passage Hotel',
-              'Ammar Grand Hotel (4★)',
-            ],
-          },
-          {
-            location: 'Gabala Hotels (choose one)',
-            choices: ['Tufandag City Hotel (3★)', 'Bliss Hotel (3★)'],
-          },
-        ],
-      },
-      {
-        name: 'Option 2 – Comfortable',
-        starLabel: '4-Star Hotels',
-        pricePerPerson: 220,
-        currency: 'USD',
-        hotels: [
-          {
-            location: 'Baku Hotels (choose one)',
-            choices: [
-              'Grand Midway Hotel (4★)',
-              'Parkside Hotel (4★)',
-              'Arion Hotel (5★)',
-            ],
-          },
-          {
-            location: 'Gabala Hotels (choose one)',
-            choices: [
-              'Gabala Karvansaray Hotel (4★)',
-              'Nohur Hotel (4★)',
-              'Yeddi Gozel Hotel (4★)',
-            ],
-          },
-        ],
-      },
-    ],
-    optionalEntryFees: {
-      totalEstimated: 66,
-      currency: 'USD',
-      items: [
-        'Fire Temple & Fire Mountain',
-        'Funicular',
-        'Cable Car',
-        'Roller Coaster',
-        'Carpet Museum',
-        'Haydar Aliyev Museum',
-        'Taxi for Mud Volcano',
-        'Bottled Water (per day)',
-      ],
-    },
-    emergencyContact: '+994556007323 / +994515832804 (WhatsApp available)',
-  },
   isActive: true,
 };
 
@@ -206,11 +222,11 @@ async function seedBakuGabalaBeyondTour() {
 
     const existing = await Destination.findOne({ slug: bakuGabalaBeyondTour.slug });
     if (existing) {
-      await Destination.updateOne({ slug: bakuGabalaBeyondTour.slug }, bakuGabalaBeyondTour);
+      await Destination.updateOne({ _id: existing._id }, { $set: bakuGabalaBeyondTour });
       console.log('Updated existing destination: Baku, Gabala & Beyond');
     } else {
       await Destination.create(bakuGabalaBeyondTour);
-      console.log('Successfully inserted: 4 Nights / 5 Days – Baku, Gabala & Beyond');
+      console.log('Successfully inserted: Baku, Gabala & Beyond');
     }
 
     console.log('\nBaku, Gabala & Beyond tour seed complete!');

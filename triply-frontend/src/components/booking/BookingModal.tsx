@@ -83,12 +83,13 @@ export function BookingModal({
     });
   };
 
-  // Calculate totals
-  const depositAmount = destination.depositAmount;
+  // Calculate totals (deposit is per person × number of travellers)
+  const depositPerPerson = destination.depositAmount ?? 199;
+  const depositTotal = depositPerPerson * numberOfTravellers;
   const activitiesTotal = Array.from(selectedActivities.values()).reduce((sum, item) => {
     return sum + (item.activity.price * item.participants);
   }, 0);
-  const totalAmount = depositAmount + activitiesTotal;
+  const totalAmount = depositTotal + activitiesTotal;
 
   // Handle booking creation and navigate to payment page
   const handleCreateBooking = async () => {
@@ -149,7 +150,8 @@ export function BookingModal({
             Book {destination.name}
           </DialogTitle>
           <DialogDescription>
-            Secure your spot with a deposit of {formatCurrency(destination.depositAmount, destination.currency)}
+            Secure your spot with a deposit of {formatCurrency(depositPerPerson, destination.currency)}
+            {numberOfTravellers > 1 ? ` per person (${formatCurrency(depositTotal, destination.currency)} total for ${numberOfTravellers} travellers)` : ''}
           </DialogDescription>
         </DialogHeader>
 
@@ -162,9 +164,14 @@ export function BookingModal({
               min={1}
               max={50}
               value={numberOfTravellers}
-              onChange={(e) => setNumberOfTravellers(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const raw = parseInt(e.target.value, 10);
+                const next = Number.isNaN(raw) ? 1 : Math.min(50, Math.max(1, raw));
+                setNumberOfTravellers(next);
+              }}
               disabled={isLoading}
             />
+            <p className="text-xs text-muted-foreground">Ages 12 years and above</p>
           </div>
 
           <div className="space-y-2">
@@ -280,8 +287,15 @@ export function BookingModal({
 
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Destination Deposit</span>
-              <span>{formatCurrency(depositAmount, destination.currency)}</span>
+              <span>
+                Destination Deposit
+                {numberOfTravellers > 1 ? (
+                  <span className="text-muted-foreground font-normal ml-1">
+                    ({formatCurrency(depositPerPerson, destination.currency)} × {numberOfTravellers})
+                  </span>
+                ) : null}
+              </span>
+             
             </div>
             {selectedActivities.size > 0 && (
               <div className="flex justify-between text-sm">

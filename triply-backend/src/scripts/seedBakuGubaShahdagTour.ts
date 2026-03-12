@@ -8,96 +8,157 @@ import env from '../config/environment';
  * Seeds a single destination (upserts by slug).
  */
 const bakuGubaShahdagTour = {
-  name: '4 Nights / 5 Days – Baku, Guba & Shahdag',
-  slug: '4-nights-5-days-baku-guba-shahdag',
-  shortDescription: 'Baku city tour, Guba (Beshbarmag, Candy Mountains, Qecresh Forest, Red Settlement), Shahdag Mountain Resort, Gobustan & Absheron. 3 nights Baku, 1 night Guba.',
-  description: `Day 1 – Arrival & Baku City Tour: Airport meet & greet, Highland Park (Parliament, Flame Towers, Alley of Martyrs), Little Venice boat tour, Daniz Mall or Carpet Museum, Old City (Maiden Tower, Shirvanshahs), Nizami Street. Overnight Baku.
+  name: 'Baku, Guba & Shahdag',
+  slug: 'baku-guba-shahdag',
+  shortDescription:
+    '4 Nights / 5 Days · 🏙️ 3 Nights Baku · 🏔️ 1 Night Guba · 🚐 Private Transport · 🍳 Breakfast Included · 👤 Not a Group Tour',
+  description: `MB Travel Azerbaijan · Private Tour
+4 Nights / 5 Days — Baku, Guba & Shahdag
 
-Day 2 – Baku → Guba (~2.5h): Beshbarmag Mountains (Caspian views), Candy Mountains, Qecresh Forest, Chanlibel Lake, Red Settlement (Qırmızı Qəsəbə), Honey House degustation. Overnight Guba.
+Contact: MB Travel Azerbaijan | +994515832804 | mbtravelaz.com
 
-Day 3 – Shahdag Mountain Resort (day trip from Guba, ~45min drive): Cable car (Caucasus views), Roller coaster, Zip-line, Buggy tours, Parachuting (optional). Transfer back to Baku. Overnight Baku.
+🏙️ 3 Nights Baku
+🏔️ 1 Night Guba
+🚐 Private Transport
+🍳 Breakfast Included
+👤 Not a Group Tour
 
-Day 4 – Gobustan & Absheron Peninsula: Mud Volcanoes, Gobustan National Park (rock carvings, nature museum), Bibi Heybat Mosque, First Drilled Oil Well, Ateshgah Fire Temple, Yanar Dag (Burning Mountain), Heydar Aliyev Center. Overnight Baku.
-
-Day 5 – Transfer to airport (3 hours before flight).
-
-Pricing: From 180 USD (Budget) or 228 USD (Comfortable) per person for 8 pax. Optional entry fees ~66 USD. Emergency: +994556007323 / +994515832804 (WhatsApp).`,
+Emergency contact: +994556007323 / +994515832804 (WhatsApp available).`,
   country: 'Azerbaijan',
   region: 'Baku, Guba',
   duration: { days: 5, nights: 4 },
   depositAmount: 199,
   currency: 'AED',
-  thumbnailImage:
-    'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800',
+  thumbnailImage: 'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800',
   images: [
     'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=1200',
     'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1200',
     'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=1200',
   ],
   highlights: [
-    'Baku: Highland Park, Flame Towers, Old City, Little Venice, Nizami Street',
-    'Guba: Beshbarmag, Candy Mountains, Qecresh Forest, Red Settlement, Honey House',
-    'Shahdag Resort: Cable car, zip-line, roller coaster, buggy, parachuting',
-    'Gobustan & Absheron: Mud Volcanoes, Fire Temple, Yanar Dag, Heydar Aliyev Center',
+    '3 Nights Baku',
+    '1 Night Guba',
+    'Private Transport',
+    'Breakfast Included',
+    'Not a Group Tour',
   ],
   itinerary: [
     {
-      day: 'Day 1 – Arrival & Baku City Tour',
+      day: '01 — Arrival & Baku City Tour',
       highlights: [
-        'Airport meet & greet',
+        'Airport meet & greet + city exploration',
         'Highland Park',
         'Little Venice',
         'Daniz Mall or Carpet Museum',
         'Old City (İçərişəhər)',
         'Nizami Street (Fountain Square)',
       ],
-      subHighlights: [
-        'Parliament Building',
-        'Flame Towers',
-        'Alley of Martyrs',
-        'Scenic boat tour',
-        'Shopping',
-        'Azerbaijan carpet heritage',
-        'Maiden Tower',
-        'Palace of the Shirvanshahs',
-        'Cafés',
-        'Boutiques',
-        'Evening atmosphere',
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Airport meet & greet + city exploration. Your driver meets you at the airport with a nameplate. Emergency: +994556007323 / +994515832804 (WhatsApp).',
+          subPoints: [],
+        },
+        {
+          text: 'Highland Park',
+          subPoints: ['Sweeping panoramas of Baku — Parliament Building, Flame Towers, and Alley of Martyrs.'],
+        },
+        {
+          text: 'Little Venice',
+          subPoints: ['Charming canal district with a scenic boat tour.'],
+        },
+        {
+          text: 'Daniz Mall or Carpet Museum',
+          subPoints: ["Your choice — modern shopping or Azerbaijan's legendary carpet heritage."],
+        },
+        {
+          text: 'Old City (İçərişəhər)',
+          subPoints: ['UNESCO World Heritage Site — Maiden Tower and the Palace of the Shirvanshahs.'],
+        },
+        {
+          text: 'Nizami Street (Fountain Square)',
+          subPoints: ["Baku's lively pedestrian boulevard — cafés, boutiques, vibrant evenings."],
+        },
       ],
       overnight: 'Baku',
     },
     {
-      day: 'Day 2 – Baku → Guba City Tour',
-      route: 'Transfer ~2.5 hours',
+      day: '02 — Baku → Guba City Tour',
       highlights: [
-        'Beshbarmag Mountains (en route)',
+        'Beshbarmag Mountains (En Route)',
         'Candy Mountains',
         'Qecresh Forest',
         'Chanlibel Lake',
         'Red Settlement (Qırmızı Qəsəbə)',
         'Honey House',
       ],
-      subHighlights: [
-        'Caspian Sea views',
-        'Honey degustation',
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Drive north to Guba with a stop at the legendary Beshbarmag area along the Caspian coast. Transfer: ~2.5 hours (with scenic stop).',
+          subPoints: [],
+        },
+        {
+          text: 'Beshbarmag Mountains (En Route)',
+          subPoints: ['Sacred mountain overlooking the Caspian — a landmark of Azerbaijani mythology.'],
+        },
+        {
+          text: 'Candy Mountains',
+          subPoints: ["Surreal multicolored mineral terrain — one of Azerbaijan's most photogenic landscapes."],
+        },
+        {
+          text: 'Qecresh Forest',
+          subPoints: ['Ancient beech forest reserve — lush, peaceful, and spectacular in autumn.'],
+        },
+        {
+          text: 'Chanlibel Lake',
+          subPoints: ['A serene high-altitude lake with dramatic mountain reflections.'],
+        },
+        {
+          text: 'Red Settlement (Qırmızı Qəsəbə)',
+          subPoints: ["A unique Jewish settlement with centuries of history — one of the world's last rural Jewish communities."],
+        },
+        {
+          text: 'Honey House',
+          subPoints: ["Free degustation of Guba's famous mountain honey."],
+        },
       ],
       overnight: 'Guba',
     },
     {
-      day: 'Day 3 – Shahdag Mountain Resort (Day Trip from Guba)',
-      route: 'Drive from Guba ~45 minutes',
-      highlights: [
-        'Cable Car',
-        'Roller Coaster',
-        'Zip-Line',
-        'Buggy Tours',
-        'Parachuting (optional)',
+      day: '03 — Shahdag Mountain Resort (Day Trip from Guba)',
+      highlights: ['Cable Car', 'Roller Coaster', 'Zip-Line', 'Buggy Tours', 'Parachuting (optional)'],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: "Azerbaijan's premier mountain adventure resort — packed with activities for all thrill levels. Transfer back to Baku afterwards. Drive from Guba: ~45 minutes.",
+          subPoints: [],
+        },
+        {
+          text: 'Cable Car',
+          subPoints: ['Ride to the upper mountain for panoramic views of the Great Caucasus range.'],
+        },
+        {
+          text: 'Roller Coaster',
+          subPoints: ['An exciting alpine ride with scenic mountain backdrops.'],
+        },
+        {
+          text: 'Zip-Line',
+          subPoints: ['Soar over the forested mountain slopes on one of the region\'s top zip-lines.'],
+        },
+        {
+          text: 'Buggy Tours',
+          subPoints: ['Off-road buggy rides across the mountain terrain — for all ages.'],
+        },
+        {
+          text: 'Parachuting (optional)',
+          subPoints: ['Tandem parachute jumps available for thrill-seekers. See shahdag.az for full activity list.'],
+        },
       ],
-      subHighlights: ['Panoramic views of the Caucasus Mountains'],
-      overnight: 'Transfer back · Baku',
+      overnight: 'Baku',
     },
     {
-      day: 'Day 4 – Gobustan & Absheron Peninsula Tour',
+      day: '04 — Gobustan & Absheron Peninsula Tour',
       highlights: [
         'Mud Volcanoes',
         'Gobustan National Park',
@@ -107,17 +168,52 @@ Pricing: From 180 USD (Budget) or 228 USD (Comfortable) per person for 8 pax. Op
         'Yanar Dag (Burning Mountain)',
         'Heydar Aliyev Center',
       ],
-      subHighlights: [
-        '40,000-year-old rock carvings',
-        'Nature museum',
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'A full day exploring ancient geology, sacred sites, and iconic modern architecture around Baku. Full-day Baku highlights.',
+          subPoints: [],
+        },
+        {
+          text: 'Mud Volcanoes',
+          subPoints: ['Azerbaijan holds one-third of all the world\'s mud volcanoes — an unforgettable landscape.'],
+        },
+        {
+          text: 'Gobustan National Park',
+          subPoints: ['UNESCO World Heritage Site — 40,000-year-old rock carvings and an excellent nature museum.'],
+        },
+        {
+          text: 'Bibi Heybat Mosque',
+          subPoints: ['A historic mosque beautifully situated on the Caspian shoreline.'],
+        },
+        {
+          text: 'First Drilled Oil Well',
+          subPoints: ['The site of the world\'s first industrially drilled oil well — a landmark in global history.'],
+        },
+        {
+          text: 'Ateshgah Fire Temple',
+          subPoints: ['Medieval fire-worshippers\' temple fueled by natural gas — a UNESCO-nominated site.'],
+        },
+        {
+          text: 'Yanar Dag (Burning Mountain)',
+          subPoints: ['A hillside that has burned continuously for decades — one of Azerbaijan\'s iconic natural wonders.'],
+        },
+        {
+          text: 'Heydar Aliyev Center',
+          subPoints: ["Zaha Hadid's breathtaking architectural masterpiece — housing premier cultural exhibitions."],
+        },
       ],
       overnight: 'Baku',
     },
     {
-      day: 'Day 5 – Baku → Airport Transfer',
-      highlights: [
-        'Hotel pickup',
-        'Transfer to airport (3 hours before flight)',
+      day: '05 — Baku to Airport Transfer',
+      highlights: ['Your driver collects you from the hotel 3 hours before your flight. Safe travels!'],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Your driver collects you from the hotel 3 hours before your flight. Safe travels!',
+          subPoints: [],
+        },
       ],
     },
   ],
@@ -135,69 +231,6 @@ Pricing: From 180 USD (Budget) or 228 USD (Comfortable) per person for 8 pax. Op
     'Entrance tickets to activities & museums',
     'Anything not mentioned under inclusions',
   ],
-  pricingHotel: {
-    validFrom: '1 Jan 2026',
-    validTo: '15 Mar 2026',
-    note: 'Rates are per person for 8 passengers',
-    options: [
-      {
-        name: 'Option 1 – Budget Friendly',
-        starLabel: '3-Star Hotels',
-        pricePerPerson: 180,
-        currency: 'USD',
-        hotels: [
-          {
-            location: 'Baku Hotels (choose one)',
-            choices: [
-              'Atlas Hotel (4★)',
-              'Innab Inn Hotel (4★)',
-              'Art Passage Hotel',
-              'Ammar Grand Hotel (4★)',
-            ],
-          },
-          {
-            location: 'Guba Hotels (choose one)',
-            choices: ['Gold Hotel (3★)', 'North Hotel (3★)'],
-          },
-        ],
-      },
-      {
-        name: 'Option 2 – Comfortable',
-        starLabel: '4-Star Hotels',
-        pricePerPerson: 228,
-        currency: 'USD',
-        hotels: [
-          {
-            location: 'Baku Hotels (choose one)',
-            choices: [
-              'Grand Midway Hotel (4★)',
-              'Parkside Hotel (4★)',
-              'Arion Hotel (5★)',
-            ],
-          },
-          {
-            location: 'Guba Hotels (choose one)',
-            choices: ['Alma Bagi Hotel (4★)', 'Ilk Inn Hotel (4★)'],
-          },
-        ],
-      },
-    ],
-    optionalEntryFees: {
-      totalEstimated: 66,
-      currency: 'USD',
-      items: [
-        'Fire Temple & Fire Mountain',
-        'Funicular',
-        'Cable Car',
-        'Roller Coaster',
-        'Carpet Museum',
-        'Haydar Aliyev Museum',
-        'Taxi for Mud Volcano',
-        'Bottled Water (per day)',
-      ],
-    },
-    emergencyContact: '+994556007323 / +994515832804 (WhatsApp available)',
-  },
   isActive: true,
 };
 
@@ -209,11 +242,11 @@ async function seedBakuGubaShahdagTour() {
 
     const existing = await Destination.findOne({ slug: bakuGubaShahdagTour.slug });
     if (existing) {
-      await Destination.updateOne({ slug: bakuGubaShahdagTour.slug }, bakuGubaShahdagTour);
+      await Destination.updateOne({ _id: existing._id }, { $set: bakuGubaShahdagTour });
       console.log('Updated existing destination: Baku, Guba & Shahdag');
     } else {
       await Destination.create(bakuGubaShahdagTour);
-      console.log('Successfully inserted: 4 Nights / 5 Days – Baku, Guba & Shahdag');
+      console.log('Successfully inserted: Baku, Guba & Shahdag');
     }
 
     console.log('\nBaku, Guba & Shahdag tour seed complete!');

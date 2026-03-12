@@ -3,75 +3,185 @@ import Destination from '../models/Destination';
 import env from '../config/environment';
 
 /**
- * Georgia 4 Days / 3 Nights Tour Program
- * Seeds a single destination into the database (does not clear existing destinations).
+ * Georgia 4 Days / 3 Nights – "Discover Georgia"
+ * Seeds a single destination (upserts by slug).
  */
 const georgiaTour = {
-  name: '4 Days / 3 Nights Georgia Tour',
-  slug: '4-days-3-nights-georgia-tour',
-  shortDescription: 'Tbilisi city tour, Caucasus mountains (Gudauri & Kazbegi), and Kakheti wine region with wine tasting and Churchkhela masterclass.',
-  description: `Day 1: Arrival & Tbilisi City Tour (3–4 hours)
-Upon arrival in Tbilisi, transfer from the airport to start your city exploration:
-• Rike Park & European Square – a blend of modern architecture and historic charm. See the remains of the Berlin Wall.
-• Bridge of Peace – iconic glass pedestrian bridge over the Kura River.
-• Lunch Break (not included)
-• Cable Car Ride to Narikala Fortress – enjoy stunning panoramic views of the city.
-• Mother of Georgia Statue – the symbol of Georgian hospitality.
-• Abanotubani (Sulfur Baths District) – the heart of old Tbilisi.
-• Shardeni Street – charming cafes, shops, and vibrant nightlife.
-Transfer back to the hotel. Overnight in Tbilisi.
+  name: 'Discover Georgia',
+  slug: 'discover-georgia',
+  shortDescription:
+    '4 Days / 3 Nights · 👥 Group of 8 Pax · 🏨 3 Nights Accommodation (BB) · 🚐 Private Mini-Bus · 🗣️ English-Speaking Guide',
+  description: `Discover Georgia
+4 Days / 3 Nights — Georgia Tour Program
 
-Day 2: Caucasus Mountains – Gudauri & Kazbegi (7–8 hours)
-Explore Georgia's stunning mountain landscapes:
-• Zhinvali Reservoir – a breathtaking turquoise lake surrounded by majestic mountains.
-• Ananuri Fortress – a medieval castle complex with views over the Aragvi River.
-• Friendship Monument (Gudauri Viewpoint) – panoramic views of snow-capped peaks.
-• Lunch break (not included in the price)
-• Kazbegi Village – visit Gergeti Trinity Church, with Mount Kazbek as a backdrop.
-Transfer back to Tbilisi. Overnight in Tbilisi.
+👥 Group of 8 Pax
+🏨 3 Nights Accommodation (BB)
+🚐 Private Mini-Bus
+🗣️ English-Speaking Guide
 
-Day 3: Kakheti Wine Region Tour (6–7 hours)
-Discover Georgia's famous wine region:
-• Bodbe Monastery – stroll through beautiful gardens overlooking the Alazani Valley.
-• Sighnaghi – the picturesque "City of Love".
-• Lunch break (not included in the price)
-• Wine Tasting – sample Georgia's renowned wines. (KTW)
-• Masterclass: Churchkhela Making – learn how to make the traditional Georgian sweet.
-Transfer back to Tbilisi. Overnight in Tbilisi.
-
-Day 4: Transfer to the airport.
-
-Payment Policy: The tour price should be paid 4 days before arrival.
-
-Note: Tour package price with accommodations is quoted for 8 pax. Once we have a request for reservation we will be able to offer you better prices depending on season and amount of people in the group.`,
+Booking & Payment: Full tour payment is required 4 days before arrival. Tour package price is for 8 pax (total). Better pricing may be available upon confirmed reservation request. Prices may vary depending on travel season and group size.`,
   country: 'Georgia',
   region: 'Caucasus',
   duration: { days: 4, nights: 3 },
   depositAmount: 199,
   currency: 'AED',
-  thumbnailImage:
-    'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800',
+  thumbnailImage: 'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800',
   images: [
     'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=1200',
     'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1200',
     'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=1200',
   ],
   highlights: [
-    'Tbilisi: Rike Park, Bridge of Peace, Narikala Fortress',
-    'Cable car ride with panoramic city views',
-    'Caucasus Mountains: Zhinvali, Ananuri, Gudauri, Kazbegi',
-    'Gergeti Trinity Church with Mount Kazbek backdrop',
-    'Kakheti: Bodbe Monastery, Sighnaghi (City of Love)',
-    'Wine tasting & Churchkhela making masterclass',
+    'Group of 8 Pax',
+    '3 Nights Accommodation (BB)',
+    'Private Mini-Bus',
+    'English-Speaking Guide',
+  ],
+  itinerary: [
+    {
+      day: '01 — Arrival & Tbilisi City Tour',
+      highlights: [
+        'Rike Park & European Square',
+        'Bridge of Peace',
+        'Lunch Break',
+        'Cable Car Ride to Narikala Fortress',
+        'Mother of Georgia Statue',
+        'Abanotubani – Sulfur Baths District',
+        'Shardeni Street',
+      ],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Upon arrival in Tbilisi, transfer from the airport and begin your city exploration. Duration: 3 – 4 hours.',
+          subPoints: [],
+        },
+        {
+          text: 'Rike Park & European Square',
+          subPoints: ['A blend of modern architecture and historic charm — including remains of the Berlin Wall.'],
+        },
+        {
+          text: 'Bridge of Peace',
+          subPoints: ['Iconic glass pedestrian bridge arching over the Kura River.'],
+        },
+        {
+          text: 'Lunch Break',
+          subPoints: ['Not included in the tour price.'],
+        },
+        {
+          text: 'Cable Car Ride to Narikala Fortress',
+          subPoints: ['Breathtaking panoramic views across the old city.'],
+        },
+        {
+          text: 'Mother of Georgia Statue',
+          subPoints: ['The beloved symbol of Georgian hospitality and national identity.'],
+        },
+        {
+          text: 'Abanotubani – Sulfur Baths District',
+          subPoints: ['The beating heart of old Tbilisi; centuries of tradition.'],
+        },
+        {
+          text: 'Shardeni Street',
+          subPoints: ['Charming cafés, local shops, and vibrant nightlife.'],
+        },
+      ],
+      overnight: 'Tbilisi',
+    },
+    {
+      day: '02 — Caucasus Mountains – Gudauri & Kazbegi',
+      highlights: [
+        'Zhinvali Reservoir',
+        'Ananuri Fortress',
+        'Friendship Monument – Gudauri Viewpoint',
+        'Lunch Break',
+        'Kazbegi Village & Gergeti Trinity Church',
+      ],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: "A full-day journey into Georgia's stunning mountain landscapes along the Georgian Military Highway. Duration: 7 – 8 hours.",
+          subPoints: [],
+        },
+        {
+          text: 'Zhinvali Reservoir',
+          subPoints: ['A breathtaking turquoise lake nestled between majestic mountain ranges.'],
+        },
+        {
+          text: 'Ananuri Fortress',
+          subPoints: ['A medieval castle complex with sweeping views over the Aragvi River valley.'],
+        },
+        {
+          text: 'Friendship Monument – Gudauri Viewpoint',
+          subPoints: ['Panoramic views of snow-capped Caucasian peaks at 2,395 m altitude.'],
+        },
+        {
+          text: 'Lunch Break',
+          subPoints: ['Not included in the tour price.'],
+        },
+        {
+          text: 'Kazbegi Village & Gergeti Trinity Church',
+          subPoints: ['The iconic 14th-century church perched at 2,170 m with Mount Kazbek (5,047 m) as a backdrop.'],
+        },
+      ],
+      overnight: 'Tbilisi',
+    },
+    {
+      day: '03 — Kakheti Wine Region Tour',
+      highlights: [
+        'Bodbe Monastery',
+        'Sighnaghi – City of Love',
+        'Lunch Break',
+        'Wine Tasting (KTW)',
+        'Churchkhela Making Masterclass',
+      ],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: "Discover Georgia's legendary wine country, home to 8,000 years of winemaking tradition. Duration: 6 – 7 hours.",
+          subPoints: [],
+        },
+        {
+          text: 'Bodbe Monastery',
+          subPoints: ['Stroll through beautiful gardens overlooking the lush Alazani Valley.'],
+        },
+        {
+          text: 'Sighnaghi – City of Love',
+          subPoints: ['The picturesque hilltop town encircled by ancient walls; charming streets and local artisans.'],
+        },
+        {
+          text: 'Lunch Break',
+          subPoints: ['Not included in the tour price.'],
+        },
+        {
+          text: 'Wine Tasting (KTW)',
+          subPoints: ["Sample Georgia's world-renowned amber and red wines, made using traditional Qvevri clay vessels."],
+        },
+        {
+          text: 'Churchkhela Making Masterclass',
+          subPoints: ['Hands-on experience making the traditional Georgian walnut-and-grape sweet.'],
+        },
+      ],
+      overnight: 'Tbilisi',
+    },
+    {
+      day: '04 — Transfer to the Airport',
+      highlights: ['Private departure transfer to Tbilisi International Airport. Safe travels!'],
+      subHighlights: [],
+      pointGroups: [
+        {
+          text: 'Private departure transfer to Tbilisi International Airport. Safe travels!',
+          subPoints: [],
+        },
+      ],
+    },
   ],
   inclusions: [
     'Hotel accommodation with breakfast (BB)',
-    'Private airport transfers',
+    'Private airport transfers (arrival & departure)',
     'Private mini-bus for all tours',
-    'English-speaking professional guide and driver',
+    'English-speaking professional guide & driver',
     '0.5 L bottled water per person per day',
     'Cable car tickets (2-way)',
-    'Wine tasting & Churchkhela making masterclass',
+    'Wine tasting & Churchkhela masterclass',
   ],
   exclusions: [
     'Lunches and dinners',
@@ -89,11 +199,11 @@ async function seedGeorgiaTour() {
 
     const existing = await Destination.findOne({ slug: georgiaTour.slug });
     if (existing) {
-      await Destination.updateOne({ slug: georgiaTour.slug }, georgiaTour);
-      console.log('Updated existing destination: 4 Days / 3 Nights Georgia Tour');
+      await Destination.updateOne({ _id: existing._id }, { $set: georgiaTour });
+      console.log('Updated existing destination: Discover Georgia');
     } else {
       await Destination.create(georgiaTour);
-      console.log('Successfully inserted: 4 Days / 3 Nights Georgia Tour');
+      console.log('Successfully inserted: Discover Georgia');
     }
 
     console.log('\nGeorgia tour seed complete!');

@@ -61,28 +61,30 @@ export const createBooking = async (
     if (!user) {
       throw new AppError('User not found', 404);
     }
-    const depositAmount = destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT;
+    const depositPerPerson = destination.depositAmount || env.DEFAULT_DEPOSIT_AMOUNT;
+    const travellers = numberOfTravellers || 1;
+    const totalDepositAmount = depositPerPerson * travellers;
 
     // Validate deposit amount (must be at least 0.50 AED)
-    if (depositAmount < 0.5) {
+    if (totalDepositAmount < 0.5) {
       throw new AppError('Deposit amount is too small after discount. Minimum amount is 0.50 AED.', 400);
     }
 
     // Generate booking reference
     const bookingReference = generateBookingReference();
 
-    // Create booking
+    // Create booking (deposit amount = per person × number of travellers)
     const booking = await Booking.create({
       userId,
       destinationId,
       bookingReference,
-      numberOfTravellers: numberOfTravellers || 1,
+      numberOfTravellers: travellers,
       specialRequests,
       affiliateCode: affiliateCode?.toUpperCase(),
       affiliateId,
       status: 'pending_deposit',
       depositPayment: {
-        amount: depositAmount,
+        amount: totalDepositAmount,
         currency: destination.currency || env.DEFAULT_CURRENCY,
         paymentStatus: 'pending',
       },
@@ -164,8 +166,8 @@ export const createBooking = async (
       await booking.save();
     }
 
-    // Calculate total amount (destination deposit + activities)
-    const totalAmount = depositAmount + totalActivityAmount;
+    // Calculate total amount (destination deposit total + activities)
+    const totalAmount = totalDepositAmount + totalActivityAmount;
 
     // Create payment intent for combined amount
     const paymentIntent = await createPaymentIntent({

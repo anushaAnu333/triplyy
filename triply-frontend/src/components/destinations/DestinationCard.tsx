@@ -2,67 +2,80 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Clock, ArrowRight } from 'lucide-react';
+import { MapPin, Calendar, Star, ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Destination } from '@/lib/api/destinations';
 
 interface DestinationCardProps {
   destination: Destination;
+  /** 'full' = show description (destinations page), 'compact' = no description (homepage) */
+  variant?: 'full' | 'compact';
+  /** CTA text, e.g. "View" or "Explore" */
+  ctaText?: string;
 }
 
-export function DestinationCard({ destination }: DestinationCardProps) {
+export function DestinationCard({
+  destination,
+  variant = 'full',
+  ctaText = 'View',
+}: DestinationCardProps) {
   return (
-    <Card className="group overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300">
-      {/* Image */}
-      <div className="relative h-64 overflow-hidden">
-        <Image
-          src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
-          alt={destination.name || 'Destination'}
-          fill
-          className="object-cover group-hover:scale-110 transition-transform duration-500"
-        />
-        <div className="absolute inset-0 gradient-card" />
-        
-        {/* Price badge */}
-        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-4 py-2">
-          <span className="text-sm font-semibold text-black">
-            From {formatCurrency(destination.depositAmount, destination.currency)}
-          </span>
-        </div>
+    <Link href={`/destinations/${destination.slug}`} className="block h-full">
+      <Card className="overflow-hidden rounded-2xl border border-slate-100 shadow-md h-full">
+        <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+          <Image
+            src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
+            alt={destination.name || 'Destination'}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover"
+          />
 
-        {/* Country tag */}
-        <div className="absolute bottom-4 left-4 flex items-center text-white">
-          <MapPin className="w-4 h-4 mr-1" />
-          <span className="text-sm font-medium">{destination.country}</span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6">
-        <h3 className="text-xl font-bold mb-2 group-hover:text-brand-orange transition-colors">
-          {destination.name || 'Destination'}
-        </h3>
-        
-        <p className="text-gray-500 text-sm mb-4 line-clamp-2">
-          {destination.shortDescription || destination.description || ''}
-        </p>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-sm text-gray-500 font-medium">
-            <Clock className="w-4 h-4 mr-1" />
-            <span>{destination.duration?.days || 0} Days / {destination.duration?.nights || 0} Nights</span>
+          {/* Top row: Featured badge (left) + Price (right) */}
+          <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+            {destination.isFeatured ? (
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-brand-orange text-white text-xs font-semibold shadow-lg">
+                ✨ Featured
+              </span>
+            ) : (
+              <span />
+            )}
+            <span className="inline-flex px-3 py-1.5 rounded-lg bg-white/95 backdrop-blur-sm text-sm font-bold text-slate-800 shadow-md">
+              From {formatCurrency(destination.depositAmount || 199, destination.currency || 'AED')}
+            </span>
           </div>
 
-          <Button variant="ghost" size="sm" className="group-hover:text-brand-orange font-medium" asChild>
-            <Link href={`/destinations/${destination.slug}`}>
-              View Details
-              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Button>
+          {/* All content overlaid on image - bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-5 pt-10 z-10">
+            <div className="flex items-center gap-1.5 text-white/90 text-sm mb-2">
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">
+                {destination.country}
+                {destination.region ? ` · ${destination.region}` : ''}
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-white leading-tight drop-shadow-sm pr-4 line-clamp-2 mb-3">
+              {destination.name || 'Destination'}
+            </h3>
+
+           
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 text-sm text-white/90">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-white/80" />
+                  {destination.duration?.days || 0}D / {destination.duration?.nights || 0}N
+                </span>
+               
+              </div>
+              <span className="inline-flex items-center gap-1 text-white font-semibold text-sm bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                {ctaText}
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }

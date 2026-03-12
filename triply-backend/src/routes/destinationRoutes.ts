@@ -2,10 +2,12 @@ import { Router } from 'express';
 import {
   getDestinations,
   getDestinationBySlug,
+  getDestinationsForAdmin,
   createDestination,
   updateDestination,
   deleteDestination,
   getDestinationAvailability,
+  uploadDestinationImagesHandler,
 } from '../controllers/destinationController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly } from '../middleware/roleCheck';
@@ -16,8 +18,26 @@ import {
   destinationSlugValidator,
 } from '../validators/destinationValidator';
 import { AuthRequest } from '../types/custom';
+import { uploadDestinationImages } from '../utils/upload';
 
 const router = Router();
+
+// Admin: upload destination images (must be before /:slug)
+router.post(
+  '/upload-images',
+  authenticate as any,
+  adminOnly as any,
+  uploadDestinationImages.array('images', 5),
+  (req, res, next) => uploadDestinationImagesHandler(req as AuthRequest, res, next)
+);
+
+// Admin: list all destinations (active + inactive) - must be before /:slug
+router.get(
+  '/admin/list',
+  authenticate as any,
+  adminOnly as any,
+  (req, res, next) => getDestinationsForAdmin(req as AuthRequest, res, next)
+);
 
 // Public routes
 router.get('/', getDestinations);

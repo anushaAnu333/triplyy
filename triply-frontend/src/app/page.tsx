@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { destinationsApi, Destination } from '@/lib/api/destinations';
+import { DestinationCard } from '@/components/destinations/DestinationCard';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
@@ -418,66 +419,17 @@ export default function HomePage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {featuredDestinations.slice(0, 6).map((destination: Destination, index: number) => (
-              <Link 
-                key={destination._id} 
-                href={`/destinations/${destination.slug}`}
-                className={`group transition-all duration-700 ${featuredRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
+              <div
+                key={destination._id}
+                className={`transition-all duration-700 ${featuredRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <Card className="overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 bg-white group-hover:-translate-y-2">
-                  <div className="relative h-72 overflow-hidden">
-                    <Image
-                      src={destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800'}
-                      alt={destination.name || 'Destination'}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                    
-                    {destination.isFeatured && (
-                      <div className="absolute top-4 left-4 px-3 py-1.5 bg-brand-orange text-white text-xs font-semibold rounded-full flex items-center gap-1 animate-pulse">
-                        <Heart className="w-3 h-3" />
-                        Featured
-                      </div>
-                    )}
-
-                    <div className="absolute top-4 right-4 px-4 py-2 bg-white rounded-full shadow-lg group-hover:bg-brand-orange group-hover:text-white transition-colors duration-300">
-                      <span className="text-sm font-bold">
-                        From {formatCurrency(destination.depositAmount || 199, destination.currency || 'AED')}
-                      </span>
-                    </div>
-
-                    <div className="absolute bottom-4 left-4 text-white">
-                      <div className="flex items-center gap-1 text-sm opacity-80 mb-1">
-                        <MapPin className="w-4 h-4" />
-                        {destination.country}
-                      </div>
-                      <h3 className="text-2xl font-bold">
-                        {destination.name || 'Destination'}
-                      </h3>
-                    </div>
-                  </div>
-
-                  <div className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm text-gray-500 font-medium">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {destination.duration?.days || 0} Days
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                          4.9
-                        </span>
-                      </div>
-                      <div className="flex items-center text-brand-orange font-semibold group-hover:translate-x-1 transition-transform">
-                        Explore
-                        <ArrowRight className="w-4 h-4 ml-1" />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
+                <DestinationCard
+                  destination={destination}
+                  variant="compact"
+                  ctaText="Explore"
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -644,7 +596,7 @@ export default function HomePage() {
 
       {/* Final CTA - Only show if user is not already an affiliate */}
       {!isAffiliate && (
-        <section className="py-32 relative overflow-hidden">
+        <section className="py-10 relative overflow-hidden">
           <div className="absolute inset-0">
             <Image 
               src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920" 
@@ -658,12 +610,12 @@ export default function HomePage() {
           
           <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-3xl mx-auto text-center text-white">
-              <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+              <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
                 Become a Referral Partner
                 <br />
                 <span className="text-white/90">Earn Commissions</span>
               </h2>
-              <p className="text-xl md:text-2xl text-white/80 mb-12 max-w-xl mx-auto">
+              <p className="text-xl md:text-xl text-white/80 mb-12 max-w-xl mx-auto">
                 Share your unique referral code and earn commissions on every booking. Join our affiliate program today!
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">

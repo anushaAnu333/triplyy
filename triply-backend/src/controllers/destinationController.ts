@@ -3,6 +3,15 @@ import { Destination, Availability } from '../models';
 import { successResponse, createdResponse, getPaginationMeta } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest, DestinationFilters } from '../types/custom';
+import { uploadImage } from '../utils/cloudinary';
+import { cleanupFiles } from '../utils/upload';
+
+function slugFromName(name: string): string {
+  return (name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
 
 /** Normalize destination from legacy multilingual shape to single-language shape for API response */
 function normalizeDestination(doc: unknown): Record<string, unknown> {
@@ -83,6 +92,57 @@ export const getDestinations = async (
 };
 
 /**
+ * Get all destinations for admin (active + inactive)
+ * GET /api/v1/destinations/admin/list
+ */
+export const getDestinationsForAdmin = async (
+  req: Request<object, object, object, DestinationFilters>,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { page = '1', limit = '10', country, region, search } = req.query;
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = Math.min(parseInt(limit, 10) || 10, 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const query: Record<string, unknown> = {};
+
+    if (country) query.country = country;
+    if (region) query.region = region;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { country: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [rawDestinations, total] = await Promise.all([
+      Destination.find(query)
+        .select('name slug shortDescription thumbnailImage country region depositAmount currency duration isActive')
+        .skip(skip)
+        .limit(limitNum)
+        .sort({ createdAt: -1 })
+        .lean(),
+      Destination.countDocuments(query),
+    ]);
+
+    const destinations = rawDestinations.map((d) => normalizeDestination(d));
+
+    successResponse(
+      res,
+      'Destinations retrieved successfully',
+      destinations,
+      getPaginationMeta(pageNum, limitNum, total)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get destination by slug
  * GET /api/v1/destinations/:slug
  */
@@ -116,7 +176,11 @@ export const createDestination = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const destination = await Destination.create(req.body);
+    const body = { ...req.body };
+    if (!body.slug && body.name) {
+      body.slug = slugFromName(body.name);
+    }
+    const destination = await Destination.create(body);
 
     createdResponse(res, 'Destination created successfully', destination);
   } catch (error) {
@@ -135,8 +199,12 @@ export const updateDestination = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const body = { ...req.body };
+    if (!body.slug && body.name) {
+      body.slug = slugFromName(body.name);
+    }
 
-    const destination = await Destination.findByIdAndUpdate(id, req.body, {
+    const destination = await Destination.findByIdAndUpdate(id, body, {
       new: true,
       runValidators: true,
     });
@@ -225,6 +293,44 @@ export const getDestinationAvailability = async (
     const availability = await Availability.find(dateQuery).sort({ date: 1 });
 
     successResponse(res, 'Availability retrieved successfully', availability);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const DESTINATION_IMAGE_FOLDER = 'triply/destinations';
+
+/**
+ * Upload destination images (Admin) - max 5, returns URLs
+ * POST /api/v1/destinations/upload-images
+ */
+export const uploadDestinationImagesHandler = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files?.length) {
+      throw new AppError('No files uploaded', 400);
+    }
+    if (files.length > 5) {
+      throw new AppError('Maximum 5 images allowed', 400);
+    }
+    const filePaths = files.map((f) => f.path).filter(Boolean);
+    if (filePaths.length !== files.length) {
+      throw new AppError('File path missing', 400);
+    }
+    const urls: string[] = [];
+    try {
+      for (const path of filePaths) {
+        const result = await uploadImage(path, DESTINATION_IMAGE_FOLDER, { highQuality: true });
+        urls.push(result.url);
+      }
+    } finally {
+      cleanupFiles(filePaths);
+    }
+    successResponse(res, 'Images uploaded', { urls });
   } catch (error) {
     next(error);
   }
