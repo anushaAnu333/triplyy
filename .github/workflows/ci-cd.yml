@@ -1,9 +1,9 @@
 # ===============================================================
-# TRIPLY - Production CI/CD Pipeline
+# TRIPLY - CI/CD Pipeline
 # ===============================================================
-# Platform: GitHub Actions v4
-# Project: Next.js Frontend + Express.js Backend
-# Features: Build, Test, Lint, Security Scanning
+# Frontend: deployed on Vercel (auto-deploys on push to main)
+# Backend:  deployed on Render (auto-deploys on push to main)
+# This workflow: build, test, lint, security scan on push/PR
 # ===============================================================
 
 name: CI/CD Pipeline
@@ -57,6 +57,7 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
+          CI: true
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1' }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
           
@@ -128,7 +129,9 @@ jobs:
     
     strategy:
       matrix:
-        directory: [${{ env.FRONTEND_DIR }}, ${{ env.BACKEND_DIR }}]
+        directory:
+          - ${{ env.FRONTEND_DIR }}
+          - ${{ env.BACKEND_DIR }}
     
     steps:
       - name: Checkout repository
