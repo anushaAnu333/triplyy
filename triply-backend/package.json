@@ -15,7 +15,13 @@
     "seed:baku-gabala": "ts-node src/scripts/seedBakuGabalaTour.ts",
     "seed:baku-full-immersion": "ts-node src/scripts/seedBakuFullImmersionTour.ts",
     "seed:baku-gabala-beyond": "ts-node src/scripts/seedBakuGabalaBeyondTour.ts",
-    "seed:baku-guba-shahdag": "ts-node src/scripts/seedBakuGubaShahdagTour.ts"
+    "seed:baku-guba-shahdag": "ts-node src/scripts/seedBakuGubaShahdagTour.ts",
+    "seed:kashmir": "ts-node src/scripts/seedKashmirTour.ts",
+    "seed:kashmir-4n5d": "ts-node src/scripts/seedKashmir4N5DTour.ts",
+    "seed:armenia-mini": "ts-node src/scripts/seedArmeniaMiniTour.ts",
+    "seed:mekong-delta": "ts-node src/scripts/seedMekongDeltaTour.ts",
+    "seed:hanoi-halong-sapa": "ts-node src/scripts/seedHanoiHalongSapaTour.ts",
+    "seed:da-nang-hoi-an": "ts-node src/scripts/seedDaNangHoiAnTour.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -35,6 +41,7 @@
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.7",
+    "resend": "^6.9.3",
     "stripe": "^14.10.0",
     "uuid": "^9.0.1",
     "winston": "^3.11.0"

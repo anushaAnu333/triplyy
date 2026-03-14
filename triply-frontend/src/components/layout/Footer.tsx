@@ -27,7 +27,7 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { name: 'Instagram', icon: Instagram, href: 'https://instagram.com/triply.squad' },
+  { name: 'Instagram', icon: Instagram, href: 'https://instagram.com/triply.squads' },
 ];
 
 export function Footer() {
@@ -61,8 +61,7 @@ export function Footer() {
           
          
             <p className="text-white/60 mb-6 leading-relaxed">
-              Your trusted travel partner for unforgettable adventures. 
-              Book with just AED 199 deposit and travel when you're ready.
+              Making group travel simple, flexible, and fun — one squad at a time. Reserve any trip from AED 199 and travel when life allows.
             </p>
            
             <div className="flex gap-4">

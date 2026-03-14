@@ -42,7 +42,7 @@ export function DestinationCard({
               <span />
             )}
             <span className="inline-flex px-3 py-1.5 rounded-lg bg-white/95 backdrop-blur-sm text-sm font-bold text-slate-800 shadow-md">
-              From {formatCurrency(destination.depositAmount || 199, destination.currency || 'AED')}
+              Reserve for {formatCurrency(destination.depositAmount || 199, destination.currency || 'AED')} → Pay the rest later
             </span>
           </div>
 

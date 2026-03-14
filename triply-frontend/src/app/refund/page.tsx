@@ -17,7 +17,7 @@ export default function RefundPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-black mt-8 mb-2">1. Overview</h2>
             <p>
-              TR✨PLY is a travel community platform where customers pay a deposit to reserve a trip. This policy explains when refunds are possible, how to request them, and how long processing takes.
+              TR✨PLY is a travel community platform where travelers pay a deposit to reserve a trip. This policy explains when refunds are possible, how to request them, and how long processing takes.
             </p>
             <p>
               This policy applies to all payments made through TR✨PLY, including those processed via Stripe, Tamara, and Tabby.
@@ -80,7 +80,7 @@ export default function RefundPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-black mt-8 mb-2">6. Chargebacks and Disputes</h2>
             <p>
-              We encourage customers to contact us at <a href="mailto:hello@triplysquads.com" className="text-brand-orange hover:underline">hello@triplysquads.com</a> before initiating a chargeback with their bank or payment provider. Most issues can be resolved directly. Initiating a chargeback without contacting us first may result in suspension of your booking and TR✨PLY account while the dispute is reviewed.
+              We encourage travelers to contact us at <a href="mailto:hello@triplysquads.com" className="text-brand-orange hover:underline">hello@triplysquads.com</a> before initiating a chargeback with their bank or payment provider. Most issues can be resolved directly. Initiating a chargeback without contacting us first may result in suspension of your booking and TR✨PLY account while the dispute is reviewed.
             </p>
           </section>
 

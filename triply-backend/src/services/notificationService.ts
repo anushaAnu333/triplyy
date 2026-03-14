@@ -1,6 +1,7 @@
 import { Booking, User } from '../models';
 import {
   sendDepositConfirmation,
+  sendPaymentInvoice,
   sendBookingConfirmation,
   sendBookingRejection,
   sendDateSelectionConfirmation,
@@ -25,6 +26,16 @@ export const notifyDepositPaid = async (bookingId: string): Promise<void> => {
       booking.depositPayment.amount,
       destination.name
     );
+    await sendPaymentInvoice({
+      userId: booking.userId.toString(),
+      bookingReference: booking.bookingReference,
+      destinationName: destination.name,
+      numberOfTravellers: booking.numberOfTravellers,
+      amount: booking.depositPayment.amount,
+      currency: booking.depositPayment.currency || 'AED',
+      transactionId: booking.depositPayment.transactionId,
+      paidAt: booking.depositPayment.paidAt,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`Failed to send deposit notification: ${message}`);

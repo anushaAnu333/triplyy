@@ -2,6 +2,7 @@ import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export type EmailType =
   | 'deposit_confirmation'
+  | 'payment_invoice'
   | 'booking_confirmed'
   | 'booking_rejected'
   | 'dates_selected'
@@ -35,6 +36,7 @@ const emailLogSchema = new Schema<IEmailLog>(
       type: String,
       enum: [
         'deposit_confirmation',
+        'payment_invoice',
         'booking_confirmed',
         'booking_rejected',
         'dates_selected',

@@ -10,8 +10,11 @@ export default function CancellationPolicyPage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-24">
       <div className="container mx-auto px-4 py-16 max-w-3xl">
-        <h1 className="text-4xl font-bold text-black mb-2">Cancellation Policy</h1>
-        <p className="text-gray-600 mb-10">Last updated: March 2026</p>
+        <h1 className="text-4xl font-bold text-black mb-2">Cancellation Policy — No Hidden Surprises.</h1>
+        <p className="text-gray-600 mb-6">Last updated: March 2026</p>
+        <p className="text-gray-700 mb-10">
+          We&apos;ve kept this as simple as possible. If your plans change, reach out to us first — we&apos;re human and we&apos;ll always try to find the best solution for you.
+        </p>
 
         <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
           <section>
@@ -22,7 +25,7 @@ export default function CancellationPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-black mt-8 mb-2">2. Cancellation by You (Customer)</h2>
+            <h2 className="text-xl font-semibold text-black mt-8 mb-2">2. If You Don&apos;t Travel</h2>
             <p>
               If you wish to cancel your reservation:
             </p>
@@ -34,7 +37,7 @@ export default function CancellationPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-black mt-8 mb-2">3. Cancellation by TR✨PLY</h2>
+            <h2 className="text-xl font-semibold text-black mt-8 mb-2">3. If We Cancel Your Trip</h2>
             <p>
               We may cancel a booking in limited circumstances, including:
             </p>
@@ -59,7 +62,7 @@ export default function CancellationPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-black mt-8 mb-2">5. Contact</h2>
             <p>
-              For cancellation requests: Email <a href="mailto:hello@triplysquads.com" className="text-brand-orange hover:underline">hello@triplysquads.com</a> or call +971 52 516 3595. Please include your booking reference and payment method used.
+              Need to cancel? Email <a href="mailto:hello@triplysquads.com" className="text-brand-orange hover:underline">hello@triplysquads.com</a> or call +971 52 516 3595. Just let us know your booking reference and how you paid.
             </p>
           </section>
         </div>

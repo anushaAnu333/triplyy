@@ -14,5 +14,16 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// Disable PWA in CI to avoid next-pwa page collection errors with Next 14 App Router
+const pwaDisabled = process.env.CI === 'true' || process.env.NODE_ENV === 'development';
+const withPWA = require('@ducanh2912/next-pwa').default({
+  dest: 'public',
+  disable: pwaDisabled,
+  cacheOnFrontendNav: true,
+  fallbacks: {
+    document: '/~offline',
+  },
+});
+
+module.exports = withPWA(nextConfig);
 

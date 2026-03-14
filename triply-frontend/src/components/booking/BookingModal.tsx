@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, CreditCard, Check, Plus, X, Calendar, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +16,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { bookingsApi } from '@/lib/api/bookings';
+import { paymentsApi } from '@/lib/api/payments';
 import { formatCurrency } from '@/lib/utils';
 import { Destination } from '@/lib/api/destinations';
 import { Activity } from '@/lib/api/activities';
@@ -37,7 +37,6 @@ export function BookingModal({
   affiliateCode,
   activities = []
 }: BookingModalProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -113,24 +112,14 @@ export function BookingModal({
         activities: activitiesArray.length > 0 ? activitiesArray : undefined,
       });
 
-      // Get booking ID
-      const bookingId = typeof result.booking.id === 'string' 
-        ? result.booking.id 
+      const bookingId = typeof result.booking.id === 'string'
+        ? result.booking.id
         : String(result.booking.id);
-      
-      // Store payment data in localStorage for the payment page
-      localStorage.setItem(`payment_${bookingId}`, JSON.stringify({
-        paymentIntentId: result.payment.paymentIntentId,
-        depositAmount: result.booking.depositAmount,
-        totalAmount: result.booking.totalAmount || result.booking.depositAmount,
-        activityAmount: result.booking.activityAmount || 0,
-        hasActivities: result.booking.hasActivities || false,
-        currency: result.booking.currency,
-      }));
-      
-      // Close modal and navigate to payment page
+
+      // TODO: remove testAmount after live Stripe testing – use full deposit in production
+      const { url } = await paymentsApi.createCheckoutSession(bookingId, { testAmount: 2 });
       onClose();
-      router.push(`/payment/${bookingId}`);
+      window.location.href = url;
       
     } catch (error: any) {
       setIsLoading(false);

@@ -446,7 +446,7 @@ export const createStripeCheckoutSessionForDeposit = async (params: {
       },
     ],
     success_url: `${baseUrl}/payment/${bookingId}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${baseUrl}/payment/${bookingId}`,
+    cancel_url: `${baseUrl}/bookings`,
     metadata: {
       bookingId,
       type: 'deposit',

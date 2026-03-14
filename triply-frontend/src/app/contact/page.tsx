@@ -10,9 +10,9 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-24">
       <div className="container mx-auto px-4 py-16 max-w-3xl">
-        <h1 className="text-4xl font-bold text-black mb-2">Contact Us</h1>
+        <h1 className="text-4xl font-bold text-black mb-2">Let&apos;s Talk.</h1>
         <p className="text-lg text-gray-600 mb-12">
-          Get in touch with TR✨PLY. We&apos;re here to help with bookings, payments, support, or any questions.
+          Got a question about a trip? Need help with a booking? We&apos;re real people and we actually reply.
         </p>
 
         <div className="space-y-8">
@@ -69,22 +69,22 @@ export default function ContactPage() {
             <div>
               <h2 className="font-semibold text-black mb-1">Instagram</h2>
               <a
-                href="https://instagram.com/triply.squad"
+                href="https://instagram.com/triply.squads"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 hover:text-brand-orange transition-colors"
               >
-                @triply.squad
+                @triply.squads
               </a>
             </div>
           </div>
         </div>
 
         <p className="mt-12 text-gray-500 text-sm">
-          We aim to respond to all enquiries within 24–48 hours during business days.
+          We usually reply within 24 hours. For faster help, message us on WhatsApp.
         </p>
         <p className="mt-2 text-gray-500 text-sm">
-          For payment-related disputes or questions about Stripe, Tamara, or Tabby transactions, please include your booking reference and payment method when contacting us.
+          💬 Prefer WhatsApp? Message us directly at <a href="https://wa.me/971525163595" className="text-brand-orange hover:underline">+971 52 516 3595</a> and we&apos;ll sort you out.
         </p>
       </div>
     </div>

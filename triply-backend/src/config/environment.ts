@@ -17,6 +17,8 @@ interface Environment {
   SMTP_USER: string;
   SMTP_PASS: string;
   EMAIL_FROM: string;
+  /** Resend API key – when set, emails are sent via Resend instead of SMTP */
+  RESEND_API_KEY: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   PAYMENT_SUCCESS_URL: string;
@@ -46,6 +48,7 @@ const env: Environment = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || '',
   EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@triply.com',
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
   PAYMENT_SUCCESS_URL: process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/booking/success',

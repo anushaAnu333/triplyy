@@ -21,7 +21,7 @@ const allNavigation = [
   { name: 'Home', href: '/' },
   { name: 'Destinations', href: '/destinations' },
   { name: 'Activities', href: '/activities' },
-  { name: 'Become a Merchant', href: '/become-merchant' },
+  { name: 'Partner With Us', href: '/become-merchant' },
   { name: 'How It Works', href: '/#how-it-works' },
 ];
 
@@ -33,7 +33,7 @@ export function Header() {
 
   // Filter out "Become a Merchant" if user is already a merchant
   const navigation = allNavigation.filter(
-    (item) => !(item.name === 'Become a Merchant' && user?.role === 'merchant')
+    (item) => !(item.name === 'Partner With Us' && user?.role === 'merchant')
   );
 
   useEffect(() => {
@@ -176,13 +176,13 @@ export function Header() {
                   variant="ghost" 
                   className={cn('rounded-full font-medium', textColor)}
                 >
-                  <Link href="/login">Sign In</Link>
+                  <Link href="/login">Log In</Link>
                 </Button>
                 <Button 
                   asChild 
                   className="rounded-full bg-brand-orange hover:bg-brand-orange/90 text-white border-0 font-semibold"
                 >
-                  <Link href="/register">Get Started</Link>
+                  <Link href="/register">Join the Squad</Link>
                 </Button>
               </>
             )}
@@ -264,14 +264,14 @@ export function Header() {
                       onClick={() => setMobileMenuOpen(false)}
                       className="block px-4 py-3 rounded-lg text-black font-medium hover:bg-gray-100"
                     >
-                      Sign In
+                      Log In
                     </Link>
                     <Link
                       href="/register"
                       onClick={() => setMobileMenuOpen(false)}
                       className="block px-4 py-3 rounded-lg bg-brand-orange text-white font-semibold text-center"
                     >
-                      Get Started
+                      Join the Squad
                     </Link>
                   </>
                 )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
@@ -88,7 +88,9 @@ const testimonials = [
   },
 ];
 
-const galleryImages = [
+// Fallback images when no destinations are loaded
+const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1920';
+const DEFAULT_GALLERY = [
   { src: 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800', alt: 'Beach Paradise', location: 'Maldives' },
   { src: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=600', alt: 'Japan Temple', location: 'Kyoto, Japan' },
   { src: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=600', alt: 'Italy Coast', location: 'Amalfi, Italy' },
@@ -105,16 +107,16 @@ const categories = [
 ];
 
 const features = [
-  { icon: Shield, title: 'Secure Payments', desc: 'Bank-level security for all transactions' },
-  { icon: Clock, title: '1-Year Flexibility', desc: 'Book now, travel anytime within a year' },
-  { icon: Headphones, title: '24/7 Support', desc: 'We are here to help you anytime' },
-  { icon: CreditCard, title: 'Easy Deposits', desc: 'Start with just AED 199' },
+  { icon: Shield, title: 'Your money is safe with us', desc: 'Bank-level encryption on every transaction.' },
+  { icon: Clock, title: 'Book now. Travel when you\'re ready.', desc: 'Pick your travel dates anytime within 12 months.' },
+  { icon: Headphones, title: 'Real humans. Always here.', desc: 'Questions? We respond within 24–48 hours.' },
+  { icon: CreditCard, title: 'Start with just AED 199', desc: 'No big upfront cost. Lock in your trip for AED 199.' },
 ];
 
 const steps = [
-  { step: '01', title: 'Choose Destination', desc: 'Browse our handpicked collection of stunning destinations worldwide.', icon: Globe },
-  { step: '02', title: 'Pay Small Deposit', desc: 'Secure your spot with just AED 199. No hidden fees, no surprises.', icon: Shield },
-  { step: '03', title: 'Travel When Ready', desc: 'Pick your dates anytime within a year. Ultimate flexibility!', icon: Plane },
+  { step: '01', title: 'Pick Your Destination', desc: 'Browse trips curated for UAE travelers — beaches, cities, mountains. Find yours.', icon: Globe },
+  { step: '02', title: 'Lock It In for AED 199', desc: 'Pay a small deposit today. No hidden fees, no stress. Your spot is saved.', icon: Shield },
+  { step: '03', title: 'Go When You\'re Ready', desc: 'Choose your travel dates anytime in the next 12 months. Life is unpredictable — your booking doesn\'t have to be.', icon: Plane },
 ];
 
 export default function HomePage() {
@@ -136,7 +138,7 @@ export default function HomePage() {
 
   const { data: destinations } = useQuery({
     queryKey: ['featured-destinations'],
-    queryFn: () => destinationsApi.getAll({ limit: 6 }),
+    queryFn: () => destinationsApi.getAll({ limit: 12 }),
   });
 
   // Check if user is already an affiliate
@@ -150,6 +152,32 @@ export default function HomePage() {
   }, []);
 
   const featuredDestinations = destinations?.data || [];
+
+  // Use different destination indices per section so the same thumbnail doesn't repeat everywhere
+  const heroImageUrl = featuredDestinations[0]?.thumbnailImage || DEFAULT_HERO_IMAGE;
+  const floatingCardDests = featuredDestinations.slice(1, 4); // 1,2,3 – avoid reusing hero (0)
+  const trendingDestinations = featuredDestinations.slice(0, 6); // First 6 for "Trending This Season"
+
+  // Gallery "Real Trips": use destinations 4–9 when we have enough (no overlap with hero/floating/trending), else use first 6 or DEFAULT_GALLERY
+  const galleryImages = useMemo(() => {
+    if (featuredDestinations.length >= 10) {
+      return featuredDestinations.slice(4, 10).map((d: Destination) => ({
+        src: d.thumbnailImage || DEFAULT_GALLERY[0].src,
+        alt: d.name || 'Destination',
+        location: [d.country, d.region].filter(Boolean).join(' · ') || d.country || '',
+        slug: d.slug,
+      }));
+    }
+    if (featuredDestinations.length === 0) return DEFAULT_GALLERY.map((g) => ({ ...g, slug: undefined }));
+    const fromDestinations = featuredDestinations.slice(0, 6).map((d: Destination) => ({
+      src: d.thumbnailImage || DEFAULT_GALLERY[0].src,
+      alt: d.name || 'Destination',
+      location: [d.country, d.region].filter(Boolean).join(' · ') || d.country || '',
+      slug: d.slug,
+    }));
+    const filled = fromDestinations.length >= 6 ? fromDestinations : [...fromDestinations, ...DEFAULT_GALLERY.slice(fromDestinations.length, 6).map((g) => ({ ...g, slug: undefined }))];
+    return filled;
+  }, [featuredDestinations]);
 
   const nextTestimonial = () => {
     setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
@@ -166,7 +194,7 @@ export default function HomePage() {
         {/* Background Image with Parallax Effect */}
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1920"
+            src={heroImageUrl}
             alt="Travel Adventure"
             fill
             className={`object-cover transition-all duration-1000 ${heroImageLoaded ? 'scale-100 opacity-60' : 'scale-110 opacity-0'}`}
@@ -189,29 +217,19 @@ export default function HomePage() {
                 className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-orange/20 backdrop-blur-sm border border-brand-orange/30 text-brand-orange text-sm font-semibold mb-8 transition-all duration-700 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
               >
                 <Sparkles className="w-4 h-4 animate-pulse" />
-                <span>Trusted by Travelers</span>
+                <span>500+ Happy Travelers from the UAE</span>
               </div>
 
-              <p 
-                className={`text-sm uppercase tracking-widest text-white/80 mb-2 transition-all duration-700 delay-75 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
-              >
-                TR✨PLY
-              </p>
               <h1 
                 className={`text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] transition-all duration-700 delay-100 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
               >
-                Explore.
-                <br />
-                <span className="text-brand-orange">Dream.</span>
-                <br />
-                <span className="text-white/90">Discover.</span>
+                Your next adventure starts with AED 199.
               </h1>
 
               <p 
                 className={`text-xl md:text-2xl text-white/70 max-w-lg mb-10 leading-relaxed transition-all duration-700 delay-200 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
               >
-                TR✨PLY is a travel community platform where you explore destinations and reserve trips with a small deposit. Book with just{' '}
-                <span className="text-brand-orange font-bold">AED 199</span> and travel anytime within a year.
+                Reserve your dream trip today with a small deposit. Pick your dates anytime within the next year — no rush, no pressure. Just you and your squad, ready when you are.
               </p>
 
               <div 
@@ -223,7 +241,7 @@ export default function HomePage() {
                   className="group text-lg px-8 py-7 rounded-full bg-brand-orange hover:bg-brand-orange/90 text-white border-0 shadow-xl shadow-brand-orange/30 font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-brand-orange/40"
                 >
                   <Link href="/destinations">
-                    Explore Destinations
+                    Reserve My Spot
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
@@ -235,7 +253,7 @@ export default function HomePage() {
                 >
                   <Link href="#how-it-works">
                     <Play className="mr-2 h-5 w-5 text-brand-orange group-hover:scale-110 transition-transform" />
-                    How It Works
+                    See How It Works
                   </Link>
                 </Button>
               </div>
@@ -244,72 +262,56 @@ export default function HomePage() {
 
             {/* Right - Floating Cards */}
             <div className="hidden lg:block relative h-[600px]">
-              {/* Main Card */}
-              <div 
-                className={`absolute top-10 right-0 w-80 transition-all duration-1000 delay-300 ${heroImageLoaded ? 'translate-x-0 opacity-100' : 'translate-x-20 opacity-0'}`}
-              >
-                <div className="relative h-96 rounded-3xl overflow-hidden shadow-2xl group">
-                  <Image
-                    src="https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600"
-                    alt="Maldives"
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-6 left-6 right-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <MapPin className="w-4 h-4 text-brand-orange" />
-                      <span className="text-white/80 text-sm">Maldives</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Paradise Awaits</h3>
-                    <div className="flex items-center justify-between">
-                      <span className="text-brand-orange font-bold">From AED 199</span>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                        <span className="text-white text-sm">4.9</span>
-                      </div>
-                    </div>
+              {/* Main Card - first destination */}
+              {floatingCardDests[0] && (
+                <Link
+                  href={`/destinations/${floatingCardDests[0].slug}`}
+                  className={`absolute top-10 right-0 w-80 transition-all duration-1000 delay-300 ${heroImageLoaded ? 'translate-x-0 opacity-100' : 'translate-x-20 opacity-0'}`}
+                >
+                  <div className="relative h-96 rounded-3xl overflow-hidden shadow-2xl group">
+                    <Image
+                      src={floatingCardDests[0].thumbnailImage}
+                      alt={floatingCardDests[0].name}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
                   </div>
-                </div>
-              </div>
+                </Link>
+              )}
 
               {/* Second Card */}
-              <div 
-                className={`absolute top-40 -left-10 w-64 transition-all duration-1000 delay-500 ${heroImageLoaded ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'}`}
-              >
-                <div className="relative h-72 rounded-2xl overflow-hidden shadow-xl group">
-                  <Image
-                    src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=500"
-                    alt="Luxury Resort"
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className="absolute bottom-4 left-4">
-                    <span className="text-white/80 text-sm">Bali, Indonesia</span>
-                    <h3 className="text-lg font-bold text-white">Luxury Escape</h3>
+              {floatingCardDests[1] && (
+                <Link
+                  href={`/destinations/${floatingCardDests[1].slug}`}
+                  className={`absolute top-40 -left-10 w-64 transition-all duration-1000 delay-500 ${heroImageLoaded ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'}`}
+                >
+                  <div className="relative h-72 rounded-2xl overflow-hidden shadow-xl group">
+                    <Image
+                      src={floatingCardDests[1].thumbnailImage}
+                      alt={floatingCardDests[1].name}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
                   </div>
-                </div>
-              </div>
+                </Link>
+              )}
 
               {/* Third Card */}
-              <div 
-                className={`absolute bottom-10 right-20 w-56 transition-all duration-1000 delay-700 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}
-              >
-                <div className="relative h-64 rounded-2xl overflow-hidden shadow-xl group">
-                  <Image
-                    src="https://images.unsplash.com/photo-1530521954074-e64f6810b32d?w=400"
-                    alt="Santorini"
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className="absolute bottom-4 left-4">
-                    <span className="text-white/80 text-sm">Greece</span>
-                    <h3 className="text-lg font-bold text-white">Santorini</h3>
+              {floatingCardDests[2] && (
+                <Link
+                  href={`/destinations/${floatingCardDests[2].slug}`}
+                  className={`absolute bottom-10 right-20 w-56 transition-all duration-1000 delay-700 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}
+                >
+                  <div className="relative h-64 rounded-2xl overflow-hidden shadow-xl group">
+                    <Image
+                      src={floatingCardDests[2].thumbnailImage}
+                      alt={floatingCardDests[2].name}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
                   </div>
-                </div>
-              </div>
+                </Link>
+              )}
 
               {/* Floating Badge */}
               <div 
@@ -345,23 +347,21 @@ export default function HomePage() {
       <section ref={galleryRef.ref} className="py-24 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className={`text-center mb-16 transition-all duration-700 ${galleryRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-            <span className="inline-block text-brand-orange font-semibold text-sm uppercase tracking-wider mb-4 px-4 py-2 bg-brand-orange/10 rounded-full">
-              Travel Inspiration
-            </span>
             <h2 className="text-4xl md:text-5xl font-bold text-black mb-4">
-              Moments Worth Living
+              Real Trips. Real People. Real Fun.
             </h2>
             <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-              Get inspired by breathtaking destinations around the world
+              This is what your squad&apos;s next adventure looks like.
             </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
             {galleryImages.map((img, index) => (
-              <div 
+              <Link
                 key={index}
+                href={'slug' in img && img.slug ? `/destinations/${img.slug}` : '/destinations'}
                 className={`relative overflow-hidden rounded-2xl md:rounded-3xl group cursor-pointer transition-all duration-700 ${galleryRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'} ${index === 0 ? 'md:col-span-2 md:row-span-2' : ''}`}
-                style={{ 
+                style={{
                   transitionDelay: `${index * 100}ms`,
                   height: index === 0 ? '400px' : '190px'
                 }}
@@ -380,7 +380,7 @@ export default function HomePage() {
                   </div>
                   <p className="font-bold text-white text-lg">{img.alt}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 
@@ -418,7 +418,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredDestinations.slice(0, 6).map((destination: Destination, index: number) => (
+            {trendingDestinations.map((destination: Destination, index: number) => (
               <div
                 key={destination._id}
                 className={`transition-all duration-700 ${featuredRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
@@ -463,14 +463,14 @@ export default function HomePage() {
       <section ref={stepsRef.ref} id="how-it-works" className="py-24 bg-white">
         <div className="container mx-auto px-4">
           <div className={`text-center mb-16 transition-all duration-700 ${stepsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-            <span className="inline-block text-brand-orange font-semibold text-sm uppercase tracking-wider mb-4 px-4 py-2 bg-brand-orange/10 rounded-full">
-              Simple Process
-            </span>
             <h2 className="text-4xl md:text-5xl font-bold text-black mb-4">
-              How It Works
+              It&apos;s This Easy
             </h2>
+            <p className="text-brand-orange font-semibold text-sm uppercase tracking-wider mb-2">
+              How TR✨PLY Works
+            </p>
             <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-              Book your dream trip in three simple steps
+              Three steps between you and your next trip.
             </p>
           </div>
 
@@ -505,7 +505,7 @@ export default function HomePage() {
           <div className={`text-center mt-14 transition-all duration-700 delay-500 ${stepsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <Button asChild size="lg" className="group rounded-full bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold px-10 py-7 text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl shadow-brand-orange/30">
               <Link href="/destinations">
-                Start Your Journey
+                Browse Trips
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
@@ -599,8 +599,8 @@ export default function HomePage() {
         <section className="py-10 relative overflow-hidden">
           <div className="absolute inset-0">
             <Image 
-              src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920" 
-              alt="Beach" 
+              src={featuredDestinations[5]?.thumbnailImage || DEFAULT_GALLERY[2].src} 
+              alt="Travel" 
               fill 
               className="object-cover" 
             />
@@ -611,27 +611,24 @@ export default function HomePage() {
           <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-3xl mx-auto text-center text-white">
               <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
-                Become a Referral Partner
-                <br />
-                <span className="text-white/90">Earn Commissions</span>
+                Love to Travel? Get Paid for It.
               </h2>
               <p className="text-xl md:text-xl text-white/80 mb-12 max-w-xl mx-auto">
-                Share your unique referral code and earn commissions on every booking. Join our affiliate program today!
+                Share TR✨PLY with your network and earn a commission on every booking they make. Free to join. No limits.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg" className="group text-lg px-10 py-7 rounded-full bg-white text-brand-orange hover:bg-white/90 shadow-2xl font-bold transition-all duration-300 hover:scale-105">
                   <Link href="/referral-partner">
-                    Become a Referral Partner
+                    Join the Partner Program
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
                 <Button asChild size="lg" className="group text-lg px-10 py-7 rounded-full bg-white text-brand-orange hover:bg-white/90 shadow-2xl font-bold transition-all duration-300 hover:scale-105">
                   <Link href="/register">
-                  Create Free Account
+                    Create Your Free Account
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
-                
               </div>
             </div>
           </div>

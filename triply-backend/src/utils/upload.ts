@@ -7,7 +7,8 @@ import AppError from './AppError';
 // Create uploads directories if they don't exist
 const uploadDir = path.join(process.cwd(), 'uploads', 'activities');
 const destinationUploadDir = path.join(process.cwd(), 'uploads', 'destinations');
-[uploadDir, destinationUploadDir].forEach((dir) => {
+const homepageUploadDir = path.join(process.cwd(), 'uploads', 'homepage');
+[uploadDir, destinationUploadDir, homepageUploadDir].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -62,6 +63,25 @@ export const uploadDestinationImages = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB per file
     files: 5,
+  },
+});
+
+const homepageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, homepageUploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `homepage-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+export const uploadHomepageImage = multer({
+  storage: homepageStorage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 1,
   },
 });
 

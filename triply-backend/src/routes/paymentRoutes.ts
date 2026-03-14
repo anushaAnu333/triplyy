@@ -41,10 +41,11 @@ router.post(
   (req, res, next) => confirmPayment(req as AuthRequest, res, next)
 );
 
+// Public: no auth required – session_id from Stripe is proof of payment (e.g. user paid via email link, may not be logged in)
 router.get(
   '/confirm-from-session',
-  authenticate as any,
-  (req, res, next) => confirmFromSession(req as AuthRequest, res, next)
+  paymentLimiter,
+  (req, res, next) => confirmFromSession(req, res, next)
 );
 
 router.post(

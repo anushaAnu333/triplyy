@@ -1,4 +1,5 @@
 import transporter from '../config/email';
+import { resend, isResendEnabled } from '../config/resend';
 import env from '../config/environment';
 import { EmailLog, User } from '../models';
 import logger from '../utils/logger';
@@ -12,13 +13,26 @@ interface EmailOptions {
   emailType: EmailType;
 }
 
+/** Resend test sender – use only when no verified domain is set in EMAIL_FROM */
+const RESEND_TEST_FROM = 'TRIPLY <onboarding@resend.dev>';
+
+const fromAddress = (useResend: boolean): string => {
+  const addr = (env.EMAIL_FROM || '').trim();
+  if (useResend && (!addr || addr === 'noreply@triply.com')) {
+    return RESEND_TEST_FROM;
+  }
+  if (addr.includes('@')) {
+    return addr.includes('<') ? addr : `TRIPLY <${addr}>`;
+  }
+  return RESEND_TEST_FROM;
+};
+
 /**
- * Send an email and log the result
+ * Send an email via Resend (if RESEND_API_KEY is set) or SMTP, and log the result.
  */
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   const { to, subject, html, userId, emailType } = options;
 
-  // Create email log entry
   const emailLog = new EmailLog({
     userId,
     emailType,
@@ -27,9 +41,33 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
     status: 'pending',
   });
 
+  if (isResendEnabled() && resend) {
+    const from = fromAddress(true);
+    const { error } = await resend.emails.send({
+      from,
+      to: [to],
+      subject,
+      html,
+    });
+
+    if (error) {
+      emailLog.status = 'failed';
+      emailLog.errorMessage = error.message;
+      await emailLog.save();
+      logger.error(`Resend failed to send email to ${to}: ${error.message}`);
+      return false;
+    }
+
+    emailLog.status = 'sent';
+    emailLog.sentAt = new Date();
+    await emailLog.save();
+    logger.info(`Email sent to ${to}: ${subject}`);
+    return true;
+  }
+
   try {
     await transporter.sendMail({
-      from: `TRIPLY <${env.EMAIL_FROM}>`,
+      from: fromAddress(false),
       to,
       subject,
       html,
@@ -71,38 +109,58 @@ export const sendDepositConfirmation = async (
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .highlight { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
-        .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; background-color: #f4f4f5; }
+        .wrapper { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+        .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .header { background: #18181b; color: #ffffff; padding: 32px 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+        .header p { margin: 8px 0 0; font-size: 14px; color: #a1a1aa; font-weight: 400; }
+        .body { padding: 32px 24px; }
+        .body p { margin: 0 0 16px; }
+        .body p:last-of-type { margin-bottom: 0; }
+        .greeting { font-size: 16px; color: #3f3f46; }
+        .lead { font-size: 17px; font-weight: 500; color: #18181b; }
+        .sub { font-size: 15px; color: #52525b; margin-top: 8px; }
+        .details { background: #f4f4f5; border-radius: 8px; padding: 20px; margin: 24px 0; border: 1px solid #e4e4e7; }
+        .details table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .details td { padding: 8px 0; color: #3f3f46; }
+        .details td:first-child { color: #71717a; font-weight: 500; width: 140px; }
+        .details td:last-child { font-weight: 500; color: #18181b; }
+        .cta-wrap { margin-top: 28px; text-align: center; }
+        .cta { display: inline-block; background: #18181b; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+        .footer { padding: 24px; text-align: center; border-top: 1px solid #e4e4e7; background: #fafafa; }
+        .footer p { margin: 0; font-size: 13px; color: #71717a; }
+        .footer a { color: #3f3f46; text-decoration: none; }
       </style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
-          <h1>Deposit Confirmed!</h1>
-        </div>
-        <div class="content">
-          <p>Dear ${user.firstName},</p>
-          <p>Thank you for your deposit! Your booking is now secured.</p>
-          
-          <div class="highlight">
-            <p><strong>Booking Reference:</strong> ${bookingReference}</p>
-            <p><strong>Destination:</strong> ${destinationName}</p>
-            <p><strong>Deposit Amount:</strong> AED ${depositAmount}</p>
+      <div class="wrapper">
+        <div class="card">
+          <div class="header">
+            <h1>Deposit confirmed</h1>
+            <p>${bookingReference}</p>
           </div>
-          
-          <p>Your calendar is now unlocked for 1 year. You can select your travel dates at any time.</p>
-          
-          <a href="${env.FRONTEND_URL}/bookings" class="button">Select Your Dates</a>
-          
+          <div class="body">
+            <p class="greeting">Hi ${user.firstName},</p>
+            <p class="lead">Your spot is now secured.</p>
+            <p class="sub">Your booking is locked in for 1 year — pick your travel dates whenever you're ready.</p>
+            <div class="details">
+              <table>
+                <tr><td>Booking reference</td><td>${bookingReference}</td></tr>
+                <tr><td>Destination</td><td>${destinationName}</td></tr>
+                <tr><td>Deposit paid</td><td>AED ${depositAmount}</td></tr>
+              </table>
+            </div>
+            <div class="cta-wrap">
+              <a href="${env.FRONTEND_URL}/bookings" class="cta">Select your dates</a>
+            </div>
+          </div>
           <div class="footer">
-            <p>TRIPLY - Your Travel Partner</p>
-            <p>If you have any questions, please contact our support team.</p>
+            <p>TRIPLY · Your travel partner</p>
+            <p><a href="mailto:hello@triplysquads.com">Contact support</a> if you have any questions.</p>
           </div>
         </div>
       </div>
@@ -116,6 +174,127 @@ export const sendDepositConfirmation = async (
     html,
     userId,
     emailType: 'deposit_confirmation',
+  });
+};
+
+/**
+ * Send payment invoice/receipt to customer after successful payment
+ */
+export const sendPaymentInvoice = async (params: {
+  userId: string;
+  bookingReference: string;
+  destinationName: string;
+  numberOfTravellers: number;
+  amount: number;
+  currency: string;
+  transactionId?: string;
+  paidAt?: Date;
+}): Promise<boolean> => {
+  const {
+    userId,
+    bookingReference,
+    destinationName,
+    numberOfTravellers,
+    amount,
+    currency,
+    transactionId,
+    paidAt,
+  } = params;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for payment invoice: ${userId}`);
+    return false;
+  }
+
+  const paymentDate = paidAt
+    ? new Date(paidAt).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+  const currencyLabel = (currency || 'AED').toUpperCase();
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 16px; line-height: 1.5; color: #1a1a1a; background: #f4f4f5; -webkit-text-size-adjust: 100%; }
+        .wrapper { max-width: 100%; padding: 16px; box-sizing: border-box; }
+        .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); max-width: 560px; margin: 0 auto; }
+        .header { background: #1a1a2e; color: #fff; padding: 24px 20px; text-align: center; }
+        .invoice-title { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+        .meta { font-size: 13px; color: rgba(255,255,255,0.85); margin: 0; }
+        .content { padding: 24px 20px; }
+        .content p { margin: 0 0 12px; }
+        .content .lead { margin-bottom: 20px; }
+        .row { padding: 12px 0; border-bottom: 1px solid #eee; }
+        .row:last-child { border-bottom: none; }
+        .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.02em; color: #71717a; margin-bottom: 4px; }
+        .value { font-size: 15px; font-weight: 500; color: #18181b; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
+        .amounts { margin: 20px 0; background: #f4f4f5; border-radius: 8px; padding: 16px; border: 1px solid #e4e4e7; }
+        .amounts table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .amounts td { padding: 8px 0; vertical-align: top; }
+        .amounts td:last-child { text-align: right; font-weight: 600; color: #18181b; }
+        .amounts tr.total td { padding-top: 12px; border-top: 1px solid #e4e4e7; font-size: 16px; font-weight: 700; }
+        .footer { text-align: center; padding: 20px; border-top: 1px solid #e4e4e7; background: #fafafa; font-size: 13px; color: #71717a; }
+        .footer p { margin: 0 0 4px; }
+        .footer a { color: #3f3f46; text-decoration: none; }
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <div class="card">
+          <div class="header">
+            <h1 class="invoice-title">Payment Invoice</h1>
+            <p class="meta">${bookingReference}</p>
+          </div>
+          <div class="content">
+            <p>Dear ${user.firstName},</p>
+            <p class="lead">Thank you for your payment! Here's your invoice for your records.</p>
+
+            <div class="row"><div class="label">Booking reference</div><div class="value">${bookingReference}</div></div>
+            <div class="row"><div class="label">Payment date</div><div class="value">${paymentDate}</div></div>
+            <div class="row"><div class="label">Destination</div><div class="value">${destinationName}</div></div>
+            <div class="row"><div class="label">Number of travellers</div><div class="value">${numberOfTravellers}</div></div>
+            ${transactionId ? `<div class="row"><div class="label">Transaction ID</div><div class="value">${transactionId}</div></div>` : ''}
+
+            <div class="amounts">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr><td style="color:#3f3f46">Trip deposit (${numberOfTravellers} ${numberOfTravellers === 1 ? 'traveller' : 'travellers'})</td><td>${currencyLabel} ${amount.toFixed(2)}</td></tr>
+                <tr class="total"><td>Total paid</td><td>${currencyLabel} ${amount.toFixed(2)}</td></tr>
+              </table>
+            </div>
+
+            <p>You're all set! Your booking is valid for 1 year — choose your travel dates anytime.</p>
+
+            <div class="footer">
+              <p>TR✨PLY – Travel. Connect. Repeat.</p>
+              <p>Keep this for your records. Questions? <a href="mailto:hello@triplysquads.com">Reach us</a>.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `Payment invoice - ${bookingReference} | TRIPLY`,
+    html,
+    userId,
+    emailType: 'payment_invoice',
   });
 };
 

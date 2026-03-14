@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import type { AuthRequest } from '../types/custom';
 import Stripe from 'stripe';
 import { Booking, ActivityBooking } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
-import { AuthRequest } from '../types/custom';
 import {
   createPaymentIntent,
   handlePaymentFailure,
@@ -73,7 +73,7 @@ export const createCheckoutSession = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId, testAmount } = req.body;
     const userId = req.user.userId;
 
     const booking = await Booking.findOne({ _id: bookingId, userId });
@@ -84,9 +84,15 @@ export const createCheckoutSession = async (
       throw new AppError('Payment has already been processed for this booking', 400);
     }
 
+    // Optional: use small amount for testing (e.g. 2 AED). Revert before production.
+    const amount =
+      typeof testAmount === 'number' && testAmount > 0
+        ? testAmount
+        : booking.depositPayment.amount;
+
     const { url } = await createStripeCheckoutSessionForDeposit({
       bookingId: booking._id.toString(),
-      amount: booking.depositPayment.amount,
+      amount,
       currency: booking.depositPayment.currency || 'aed',
       bookingReference: booking.bookingReference,
     });
@@ -98,20 +104,21 @@ export const createCheckoutSession = async (
 };
 
 /**
- * Confirm payment from Stripe session (success-page fallback when webhook is not received)
+ * Confirm payment from Stripe session (success-page fallback when webhook is not received).
+ * Works without auth so users who pay via email link (e.g. different device / not logged in)
+ * still get the booking updated. Session ID from Stripe is the proof of payment.
  * GET /api/v1/payments/confirm-from-session?session_id=cs_xxx
  */
 export const confirmFromSession = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const sessionId = (req.query.session_id || req.body?.session_id) as string | undefined;
+    const sessionId = (req.query.session_id || (req as any).body?.session_id) as string | undefined;
     if (!sessionId) {
       throw new AppError('session_id is required', 400);
     }
-    const userId = req.user.userId;
 
     const session = await retrieveStripeCheckoutSession(sessionId);
     const bookingId = session.metadata?.bookingId;
@@ -122,7 +129,7 @@ export const confirmFromSession = async (
     }
 
     if (type === 'deposit') {
-      const booking = await Booking.findOne({ _id: bookingId, userId });
+      const booking = await Booking.findById(bookingId);
       if (!booking) {
         throw new AppError('Booking not found', 404);
       }
@@ -138,10 +145,6 @@ export const confirmFromSession = async (
     if (type === 'activity_booking') {
       const booking = await ActivityBooking.findById(bookingId);
       if (!booking) {
-        throw new AppError('Activity booking not found', 404);
-      }
-      const isOwner = String(booking.userId) === userId;
-      if (!isOwner) {
         throw new AppError('Activity booking not found', 404);
       }
       if (booking.status === 'payment_completed' || booking.status === 'confirmed') {

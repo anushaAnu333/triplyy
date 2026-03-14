@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { bookingsApi } from '@/lib/api/bookings';
+import { paymentsApi } from '@/lib/api/payments';
 import { formatDate, formatCurrency, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils';
 import { Destination } from '@/lib/api/destinations';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -29,6 +30,7 @@ export default function BookingDetailPage() {
   const bookingId = params.id as string;
 
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   const { data: booking, isLoading } = useQuery({
     queryKey: ['booking', bookingId],
@@ -82,6 +84,24 @@ export default function BookingDetailPage() {
   const destination = booking.destinationId as Destination;
   const canSelectDates = booking.status === 'deposit_paid';
   const canCancel = ['pending_deposit', 'deposit_paid', 'dates_selected'].includes(booking.status);
+  const isPendingDeposit = booking.status === 'pending_deposit';
+
+  const handlePayNow = async () => {
+    if (!bookingId || isPaymentLoading) return;
+    setIsPaymentLoading(true);
+    try {
+      // TODO: remove testAmount after live Stripe testing – use full deposit in production
+      const { url } = await paymentsApi.createCheckoutSession(bookingId, { testAmount: 2 });
+      if (url) window.location.href = url;
+    } catch {
+      toast({
+        title: 'Payment failed',
+        description: 'Could not start payment. Please try again.',
+        variant: 'destructive',
+      });
+      setIsPaymentLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted/30 py-8">
@@ -347,6 +367,20 @@ export default function BookingDetailPage() {
                 <CardTitle>Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {isPendingDeposit && (
+                  <Button
+                    className="w-full"
+                    onClick={handlePayNow}
+                    disabled={isPaymentLoading}
+                  >
+                    {isPaymentLoading ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <CreditCard className="w-4 h-4 mr-2" />
+                    )}
+                    Pay Now
+                  </Button>
+                )}
                 {canSelectDates && (
                   <Button className="w-full" onClick={() => setShowDatePicker(true)}>
                     <Calendar className="w-4 h-4 mr-2" />
