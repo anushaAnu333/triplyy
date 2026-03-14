@@ -130,8 +130,8 @@ jobs:
     strategy:
       matrix:
         directory:
-          - ${{ env.FRONTEND_DIR }}
-          - ${{ env.BACKEND_DIR }}
+          - triply-frontend
+          - triply-backend
     
     steps:
       - name: Checkout repository
