@@ -11,6 +11,10 @@ const nextConfig = {
     NEXT_PUBLIC_STRIPE_PUBLIC_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY || '',
     NEXT_PUBLIC_DEPOSIT_AMOUNT: process.env.NEXT_PUBLIC_DEPOSIT_AMOUNT || '199',
     NEXT_PUBLIC_CURRENCY: process.env.NEXT_PUBLIC_CURRENCY || 'AED',
+    /** Package pages: enquiry bar (AFC-style). WhatsApp: country + number without + e.g. 971525163595 */
+    NEXT_PUBLIC_ENQUIRY_PHONE: process.env.NEXT_PUBLIC_ENQUIRY_PHONE || '',
+    NEXT_PUBLIC_ENQUIRY_EMAIL: process.env.NEXT_PUBLIC_ENQUIRY_EMAIL || '',
+    NEXT_PUBLIC_ENQUIRY_WHATSAPP: process.env.NEXT_PUBLIC_ENQUIRY_WHATSAPP || '',
   },
 };
 

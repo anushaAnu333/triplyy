@@ -9,6 +9,14 @@ export const generateBookingReference = (): string => {
   return `TRP-${dateStr}-${randomPart}`;
 };
 
+/** Package (promotional) booking reference — separate from destination bookings */
+export const generatePackageBookingReference = (): string => {
+  const date = new Date();
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+  const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `PKG-${dateStr}-${randomPart}`;
+};
+
 /**
  * Generate unique affiliate code
  * Format: AFFILIATE-XXXXX (e.g., AFF-A3B5C)

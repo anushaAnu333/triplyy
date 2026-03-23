@@ -1,12 +1,87 @@
 import { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import { Activity, User, ActivityBooking, ActivityAvailability } from '../models';
+import { Activity, User, ActivityBooking, ActivityAvailability, MerchantOnboarding } from '../models';
 import { successResponse, createdResponse } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
 import { uploadImages } from '../utils/cloudinary';
 import { cleanupFiles } from '../utils/upload';
 import logger from '../utils/logger';
+
+/**
+ * Submit merchant onboarding application (multi-step form + documents)
+ * POST /api/v1/merchant/onboarding
+ */
+export const submitOnboarding = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const files = req.files as Express.Multer.File[] | undefined;
+  const filePaths: string[] = [];
+  try {
+    const userId = req.user!.userId;
+    const user = await User.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+    if (user.role === 'merchant') throw new AppError('You are already a merchant', 400);
+    if (user.role === 'admin') throw new AppError('Admins cannot register as merchants', 400);
+
+    const businessType = req.body.businessType as string;
+    const categoriesRaw = req.body.categories;
+    const businessInfoRaw = req.body.businessInfo;
+    const servicesRaw = req.body.services;
+
+    if (!businessType || !categoriesRaw || !businessInfoRaw || !servicesRaw) {
+      throw new AppError('businessType, categories, businessInfo and services are required', 400);
+    }
+
+    let categories: string[];
+    let businessInfo: Record<string, unknown>;
+    let services: Array<Record<string, unknown>>;
+    try {
+      categories = JSON.parse(categoriesRaw);
+      businessInfo = JSON.parse(businessInfoRaw);
+      services = JSON.parse(servicesRaw);
+    } catch {
+      throw new AppError('Invalid JSON in request body', 400);
+    }
+
+    if (!Array.isArray(categories) || categories.length === 0) {
+      throw new AppError('At least one category is required', 400);
+    }
+    if (!Array.isArray(services) || services.length === 0) {
+      throw new AppError('At least one service is required', 400);
+    }
+
+    const documentPaths: Record<string, string> = {};
+    if (files && files.length > 0) {
+      files.forEach((file) => {
+        if (file.fieldname && file.path) {
+          documentPaths[file.fieldname] = file.path;
+          filePaths.push(file.path);
+        }
+      });
+    }
+
+    const onboarding = await MerchantOnboarding.create({
+      userId,
+      businessType,
+      categories,
+      businessInfo,
+      documentPaths,
+      services,
+      status: 'pending',
+    });
+
+    createdResponse(res, 'Onboarding submitted successfully. Awaiting admin approval.', {
+      applicationId: onboarding._id,
+      role: user.role,
+    });
+  } catch (error) {
+    if (filePaths.length > 0) cleanupFiles(filePaths);
+    next(error);
+  }
+};
 
 /**
  * Register as merchant

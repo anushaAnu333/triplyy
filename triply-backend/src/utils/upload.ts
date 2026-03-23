@@ -8,7 +8,8 @@ import AppError from './AppError';
 const uploadDir = path.join(process.cwd(), 'uploads', 'activities');
 const destinationUploadDir = path.join(process.cwd(), 'uploads', 'destinations');
 const homepageUploadDir = path.join(process.cwd(), 'uploads', 'homepage');
-[uploadDir, destinationUploadDir, homepageUploadDir].forEach((dir) => {
+const onboardingUploadDir = path.join(process.cwd(), 'uploads', 'onboarding');
+[uploadDir, destinationUploadDir, homepageUploadDir, onboardingUploadDir].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -82,6 +83,34 @@ export const uploadHomepageImage = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
     files: 1,
+  },
+});
+
+// Onboarding: PDF + images, multiple files
+const onboardingStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, onboardingUploadDir),
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `onboarding-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const onboardingFileFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else cb(new AppError('Only PDF, JPG and PNG are allowed for onboarding documents.', 400));
+};
+
+export const uploadOnboardingFiles = multer({
+  storage: onboardingStorage,
+  fileFilter: onboardingFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 30,
   },
 });
 

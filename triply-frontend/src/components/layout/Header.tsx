@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 const allNavigation = [
   { name: 'Home', href: '/' },
   { name: 'Destinations', href: '/destinations' },
+  { name: 'Packages', href: '/packages' },
   { name: 'Activities', href: '/activities' },
   { name: 'Partner With Us', href: '/become-merchant' },
   { name: 'How It Works', href: '/#how-it-works' },

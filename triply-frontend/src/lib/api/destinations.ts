@@ -8,6 +8,7 @@ export interface ItineraryPointGroup {
 export interface ItineraryDay {
   day: string;
   route?: string;
+  meals?: string[];
   highlights: string[];
   subHighlights?: string[];
   pointGroups?: ItineraryPointGroup[];

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import type { AuthRequest } from '../types/custom';
 import Stripe from 'stripe';
-import { Booking, ActivityBooking } from '../models';
+import { Booking, ActivityBooking, PackageBooking } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import {
@@ -11,6 +11,7 @@ import {
   simulateDummyPaymentFailure,
   createStripeCheckoutSessionForDeposit,
   createStripeCheckoutSessionForActivity,
+  createStripeCheckoutSessionForPackageBooking,
   handleCheckoutSessionCompleted,
   retrieveStripeCheckoutSession,
 } from '../services/paymentService';
@@ -156,7 +157,75 @@ export const confirmFromSession = async (
       return;
     }
 
+    if (type === 'package_booking') {
+      const pb = await PackageBooking.findById(bookingId);
+      if (!pb) {
+        throw new AppError('Package booking not found', 404);
+      }
+      if (pb.status === 'pending_date' || pb.status === 'confirmed') {
+        successResponse(res, 'Payment already confirmed', { status: pb.status });
+        return;
+      }
+      await handleCheckoutSessionCompleted(session);
+      successResponse(res, 'Payment confirmed', { status: 'pending_date' });
+      return;
+    }
+
     throw new AppError('Invalid session type', 400);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Create Stripe Checkout Session for promotional package booking deposit
+ * POST /api/v1/payments/package-booking/create-checkout-session
+ */
+export const createPackageBookingCheckoutSession = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { packageBookingId, testAmount } = req.body as {
+      packageBookingId?: string;
+      testAmount?: number;
+    };
+    const userId = req.user.userId;
+
+    if (!packageBookingId) {
+      throw new AppError('packageBookingId is required', 400);
+    }
+
+    const booking = await PackageBooking.findOne({
+      _id: packageBookingId,
+      userId,
+    }).populate('packageId');
+
+    if (!booking) {
+      throw new AppError('Package booking not found', 404);
+    }
+    if (booking.status !== 'pending_deposit') {
+      throw new AppError('Payment has already been processed for this booking', 400);
+    }
+
+    const pkg = booking.packageId as unknown as { name?: string } | null;
+    const packageName = pkg?.name || 'Package';
+
+    const amount =
+      typeof testAmount === 'number' && testAmount > 0
+        ? testAmount
+        : booking.depositPayment.amount;
+
+    const { url } = await createStripeCheckoutSessionForPackageBooking({
+      packageBookingId: booking._id.toString(),
+      amount,
+      currency: booking.depositPayment.currency || 'aed',
+      bookingReference: booking.bookingReference,
+      packageName,
+    });
+
+    successResponse(res, 'Checkout session created', { url });
   } catch (error) {
     next(error);
   }

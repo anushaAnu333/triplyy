@@ -1,6 +1,14 @@
 import Stripe from 'stripe';
 import env from '../config/environment';
-import { Booking, AffiliateCode, Commission, User, ActivityBooking, ActivityAvailability } from '../models';
+import {
+  Booking,
+  AffiliateCode,
+  Commission,
+  User,
+  ActivityBooking,
+  ActivityAvailability,
+  PackageBooking,
+} from '../models';
 import logger from '../utils/logger';
 import AppError from '../utils/AppError';
 import { generateTransactionReference } from '../utils/generateReference';
@@ -561,6 +569,13 @@ export const handleCheckoutSessionCompleted = async (
     return;
   }
 
+  if (type === 'package_booking') {
+    await handlePackageBookingPaymentSuccess(bookingId, paymentIntentId || session.id);
+    const { notifyPackageDepositPaid } = await import('./notificationService');
+    await notifyPackageDepositPaid(bookingId);
+    return;
+  }
+
   logger.warn('[STRIPE] Unknown checkout session type', { type, sessionId: session.id });
 }
 
@@ -596,5 +611,88 @@ export const handleActivityBookingPaymentSuccess = async (
     }
   }
   logger.info(`[STRIPE] Activity booking ${booking.bookingReference} payment completed`);
+};
+
+/**
+ * Promotional package booking: deposit paid → status pending_date (travel dates assigned later by admin)
+ */
+export const handlePackageBookingPaymentSuccess = async (
+  packageBookingId: string,
+  transactionId: string
+): Promise<void> => {
+  const booking = await PackageBooking.findById(packageBookingId);
+  if (!booking) {
+    throw new AppError('Package booking not found', 404);
+  }
+  if (booking.status !== 'pending_deposit') {
+    logger.info(`[STRIPE] Package booking ${packageBookingId} already processed, skipping`);
+    return;
+  }
+
+  booking.status = 'pending_date';
+  booking.depositPayment.paymentStatus = 'completed';
+  booking.depositPayment.paidAt = new Date();
+  booking.depositPayment.transactionId = transactionId;
+
+  const unlockDate = new Date();
+  unlockDate.setDate(unlockDate.getDate() + env.CALENDAR_UNLOCK_DURATION_DAYS);
+  booking.calendarUnlockedUntil = unlockDate;
+
+  await booking.save();
+  logger.info(`[STRIPE] Package booking ${booking.bookingReference} deposit paid → pending_date`);
+};
+
+/**
+ * Stripe Checkout for package booking deposit (metadata type: package_booking)
+ */
+export const createStripeCheckoutSessionForPackageBooking = async (params: {
+  packageBookingId: string;
+  amount: number;
+  currency: string;
+  bookingReference: string;
+  packageName: string;
+}): Promise<{ url: string }> => {
+  const stripe = getStripe();
+  if (!stripe) {
+    throw new AppError('Stripe is not configured. Set STRIPE_SECRET_KEY.', 503);
+  }
+  const { packageBookingId, amount, currency, bookingReference, packageName } = params;
+  const chargeAmount = Math.max(amount, STRIPE_MIN_AMOUNT_AED);
+  const amountInSmallestUnit = toStripeAmount(chargeAmount, currency);
+  const baseUrl = (env.FRONTEND_URL || '').replace(/\/$/, '');
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    locale: 'en',
+    line_items: [
+      {
+        price_data: {
+          currency: 'aed',
+          unit_amount: amountInSmallestUnit,
+          product_data: {
+            name: `Package deposit – ${packageName}`,
+            description: `Booking ${bookingReference}. Travel dates will be confirmed by our team.`,
+          },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${baseUrl}/payment/package/${packageBookingId}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/packages`,
+    metadata: {
+      bookingId: packageBookingId,
+      type: 'package_booking',
+      bookingReference,
+    },
+    client_reference_id: packageBookingId,
+  });
+
+  const url = session.url;
+  if (!url) {
+    throw new AppError('Failed to create Stripe Checkout session', 500);
+  }
+  logger.info(`[STRIPE] Checkout session created for package booking ${packageBookingId}`);
+  return { url };
 };
 

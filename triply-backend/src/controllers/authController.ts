@@ -110,7 +110,7 @@ export const register = async (
       verificationToken
     );
 
-    createdResponse(res, 'Registration successful. Please check your email to verify your account.', {
+    createdResponse(res, 'Registration successful. Please login to your account.', {
       userId: user._id,
       email: user.email,
       discountApplied: discountAmount ? true : false,

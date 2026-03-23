@@ -14,4 +14,11 @@ export { default as Activity, IActivity, ActivityStatus } from './Activity';
 export { default as ActivityInquiry, IActivityInquiry } from './ActivityInquiry';
 export { default as ActivityAvailability, IActivityAvailability } from './ActivityAvailability';
 export { default as ActivityBooking, IActivityBooking, ActivityBookingStatus } from './ActivityBooking';
+export { default as MerchantOnboarding, IMerchantOnboarding, OnboardingStatus } from './MerchantOnboarding';
+export { default as Package, IPackage } from './Package';
+export {
+  default as PackageBooking,
+  IPackageBooking,
+  PackageBookingStatus,
+} from './PackageBooking';
 

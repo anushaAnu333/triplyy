@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   registerAsMerchant,
+  submitOnboarding,
   submitActivity,
   getMerchantActivities,
   getMerchantDashboard,
@@ -10,7 +11,7 @@ import {
   updateActivitySlots,
 } from '../controllers/merchantController';
 import { authenticate } from '../middleware/auth';
-import { uploadActivityImages } from '../utils/upload';
+import { uploadActivityImages, uploadOnboardingFiles } from '../utils/upload';
 import { AuthRequest } from '../types/custom';
 
 const router = Router();
@@ -20,6 +21,18 @@ router.post(
   '/register',
   authenticate as any,
   (req, res, next) => registerAsMerchant(req as AuthRequest, res, next)
+);
+
+// Merchant onboarding (multi-step form + file uploads)
+router.post(
+  '/onboarding',
+  authenticate as any,
+  (req, res, next) => {
+    uploadOnboardingFiles.any()(req, res, (err) => {
+      if (err) return next(err);
+      submitOnboarding(req as AuthRequest, res, next);
+    });
+  }
 );
 
 // All other routes require merchant authentication

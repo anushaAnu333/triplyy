@@ -82,8 +82,8 @@ export default function RegisterPage() {
         const discount = result.discountAmount || 0;
         setReferralDiscount(discount);
         toast({
-          title: 'Referral code valid!',
-          description: `You'll receive AED ${discount.toFixed(0)} discount on your first booking.`,
+          title: 'Referral code applied!',
+          description: "Your friend will be rewarded for this booking. Thank you!",
         });
       } else if (result.isValid && !result.canUseForReferral) {
         setReferralDiscount(null);
@@ -146,19 +146,19 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 pt-24">
+    <div className="min-h-screen flex items-center justify-center py-6 sm:py-12 px-3 sm:px-4 pt-20 sm:pt-24">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="font-display text-3xl">Create Account</CardTitle>
-          <CardDescription>
+        <CardHeader className="text-center px-3 sm:px-6">
+          <CardTitle className="font-display text-2xl sm:text-3xl">Create Account</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
             Join TRIPLY and start your travel adventure
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+          <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="firstName" className="text-sm">First Name</Label>
                 <Input
                   id="firstName"
                   placeholder="John"
@@ -169,8 +169,8 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="lastName" className="text-sm">Last Name</Label>
                 <Input
                   id="lastName"
                   placeholder="Doe"
@@ -182,8 +182,8 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="email" className="text-sm">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -195,8 +195,8 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="phoneNumber" className="text-sm">Phone Number (Optional)</Label>
               <Input
                 id="phoneNumber"
                 type="tel"
@@ -205,13 +205,13 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="password" className="text-sm">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder=""
                   {...register('password')}
                 />
                 <button
@@ -227,12 +227,12 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="confirmPassword" className="text-sm">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="••••••••"
+                placeholder=""
                 {...register('confirmPassword')}
               />
               {errors.confirmPassword && (
@@ -241,19 +241,19 @@ export default function RegisterPage() {
             </div>
 
             {/* Referral Code Section */}
-            <div className="space-y-2 pt-2 border-t">
+            <div className="space-y-1.5 sm:space-y-2 pt-2 border-t">
               <button
                 type="button"
                 onClick={() => setShowReferralSection(!showReferralSection)}
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
+                className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
               >
-                <Gift className="w-4 h-4" />
-                Have a referral code?
+                <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Have a referral code?</span>
               </button>
               
               {showReferralSection && (
-                <div className="space-y-2">
-                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="referralCode" className="text-sm">Referral Code (Optional)</Label>
                   <div className="relative">
                     <Input
                       id="referralCode"
@@ -269,8 +269,8 @@ export default function RegisterPage() {
                     )}
                   </div>
                   {referralDiscount && (
-                    <p className="text-sm text-green-600 font-medium">
-                      ✓ Valid code! You'll receive AED {referralDiscount.toFixed(0)} discount on your first booking.
+                    <p className="text-xs sm:text-sm text-green-600 font-medium">
+                      ✓ Valid referral code! This booking will count towards your referrer&apos;s reward.
                     </p>
                   )}
                   {errors.referralCode && (
@@ -281,20 +281,20 @@ export default function RegisterPage() {
             </div>
           </CardContent>
 
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+          <CardFooter className="flex flex-col gap-3 sm:gap-4 px-3 sm:px-6 pb-4 sm:pb-6">
+            <Button type="submit" className="w-full text-sm sm:text-base" disabled={isLoading}>
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Create Account
             </Button>
 
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-xs sm:text-sm text-muted-foreground text-center">
               Already have an account?{' '}
               <Link href="/login" className="text-primary hover:underline">
                 Sign in
               </Link>
             </p>
 
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground text-center leading-tight">
               By creating an account, you agree to our{' '}
               <Link href="/terms" className="underline">Terms of Service</Link>
               {' '}and{' '}

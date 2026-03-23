@@ -3,6 +3,7 @@ import {
   createIntent,
   createCheckoutSession,
   createActivityBookingCheckoutSession,
+  createPackageBookingCheckoutSession,
   confirmPayment,
   confirmFromSession,
   handleWebhook,
@@ -66,6 +67,13 @@ router.post(
   authenticate as any,
   paymentLimiter,
   (req, res, next) => createActivityBookingPaymentIntent(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/package-booking/create-checkout-session',
+  authenticate as any,
+  paymentLimiter,
+  (req, res, next) => createPackageBookingCheckoutSession(req as AuthRequest, res, next)
 );
 
 router.post(

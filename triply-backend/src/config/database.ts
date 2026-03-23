@@ -52,37 +52,26 @@ const connectDatabase = async (): Promise<void> => {
 
   } catch (error: any) {
     logger.error(`Error connecting to MongoDB: ${error.message}`);
-    
+
     // Provide helpful error messages based on error type
     if (error.message.includes('ENOTFOUND') || error.message.includes('getaddrinfo')) {
       logger.error('DNS Resolution Failed - Cannot resolve MongoDB hostname');
-      logger.error('Troubleshooting steps:');
       logger.error('1. Check your internet connection');
       logger.error('2. Verify MongoDB Atlas cluster is active (not paused)');
-      logger.error('3. Check if the cluster hostname is correct in MONGODB_URI');
-      logger.error('4. Try pinging the MongoDB hostname');
-      logger.error('5. Check DNS settings or try using a different DNS server');
+      logger.error('3. Check MONGODB_URI in .env (host, port, database name)');
     } else if (error.message.includes('ECONNREFUSED') || error.message.includes('querySrv')) {
       logger.error('MongoDB connection refused. Please check:');
-      logger.error('1. MongoDB Atlas cluster is running');
-      logger.error('2. Your IP address is whitelisted in MongoDB Atlas');
-      logger.error('3. Network connection is available');
-      logger.error('4. MONGODB_URI in .env file is correct');
+      logger.error('1. MongoDB is running (local: run `mongod` or start MongoDB service)');
+      logger.error('2. If using Atlas: cluster is running and your IP is whitelisted');
+      logger.error('3. MONGODB_URI in .env is correct (e.g. mongodb://localhost:27017/yourdb)');
     } else if (error.message.includes('authentication failed')) {
-      logger.error('Authentication failed. Check:');
-      logger.error('1. Database username and password are correct');
-      logger.error('2. Database user has proper permissions');
+      logger.error('Authentication failed. Check username/password in MONGODB_URI');
     } else {
-      logger.error('Unknown MongoDB connection error');
-      logger.error('Error details:', error);
+      logger.error('MongoDB connection error. Check MONGODB_URI and that MongoDB is running.');
     }
-    
-    // Don't exit in development - allow server to continue (it will retry)
-    if (env.NODE_ENV === 'production') {
-    process.exit(1);
-    } else {
-      logger.warn('Continuing in development mode. Connection will be retried on next request.');
-    }
+
+    // Always rethrow so the server does not start without a DB (avoids buffering timeouts)
+    throw error;
   }
 };
 

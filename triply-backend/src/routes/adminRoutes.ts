@@ -26,6 +26,17 @@ import {
   processWithdrawal,
   rejectWithdrawal,
 } from '../controllers/affiliateController';
+import {
+  getOnboardingApplications,
+  getOnboardingById,
+  getOnboardingDocument,
+  approveOnboarding,
+  rejectOnboarding,
+} from '../controllers/adminOnboardingController';
+import {
+  adminListPackageBookings,
+  adminAssignPackageTravelDates,
+} from '../controllers/packageBookingController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly } from '../middleware/roleCheck';
 import { AuthRequest } from '../types/custom';
@@ -122,6 +133,32 @@ router.put('/activities/:id/approve', (req, res, next) =>
 
 router.put('/activities/:id/reject', (req, res, next) =>
   rejectActivity(req as AuthRequest, res, next)
+);
+
+// Merchant onboarding applications
+router.get('/onboarding', (req, res, next) =>
+  getOnboardingApplications(req as AuthRequest, res, next)
+);
+router.get('/onboarding/:id/documents/:docKey', (req, res, next) =>
+  getOnboardingDocument(req as AuthRequest, res, next)
+);
+router.get('/onboarding/:id', (req, res, next) =>
+  getOnboardingById(req as AuthRequest, res, next)
+);
+router.put('/onboarding/:id/approve', (req, res, next) =>
+  approveOnboarding(req as AuthRequest, res, next)
+);
+router.put('/onboarding/:id/reject', (req, res, next) =>
+  rejectOnboarding(req as AuthRequest, res, next)
+);
+
+// Promotional package bookings (separate from destination bookings)
+router.get('/package-bookings', (req, res, next) =>
+  adminListPackageBookings(req as AuthRequest, res, next)
+);
+
+router.patch('/package-bookings/:id/assign-dates', (req, res, next) =>
+  adminAssignPackageTravelDates(req as AuthRequest, res, next)
 );
 
 export default router;

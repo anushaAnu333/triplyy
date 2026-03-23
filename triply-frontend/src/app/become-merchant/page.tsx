@@ -1,58 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, DollarSign, Users, TrendingUp, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
+import { Store, DollarSign, Users, TrendingUp, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
-import { merchantActivitiesApi } from '@/lib/api/activities';
 import Link from 'next/link';
 
 export default function BecomeMerchantPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const { toast } = useToast();
-  const [isRegistering, setIsRegistering] = useState(false);
-
-  const handleBecomeMerchant = async () => {
-    if (!isAuthenticated) {
-      // Redirect to login with return URL
-      router.push('/login?redirect=/become-merchant&action=become-merchant');
-      return;
-    }
-
-    if (user?.role === 'merchant') {
-      router.push('/merchant/dashboard');
-      return;
-    }
-
-    setIsRegistering(true);
-    try {
-      await merchantActivitiesApi.register();
-      
-      toast({
-        title: 'Success!',
-        description: 'You are now a merchant! Please log in again to access your dashboard.',
-      });
-      
-      // Clear the old token and redirect to login
-      // The user will get a new token with the updated role when they log in
-      setTimeout(async () => {
-        await logout();
-        router.push('/login?registered=merchant&redirect=/merchant/dashboard');
-      }, 2000);
-    } catch (error: any) {
-      toast({
-        title: 'Registration Failed',
-        description: error.response?.data?.message || 'Unable to register as merchant',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRegistering(false);
-    }
-  };
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const features = [
     {
@@ -129,20 +86,12 @@ export default function BecomeMerchantPage() {
             <Button 
               size="lg" 
               className="text-lg px-8"
-              onClick={handleBecomeMerchant}
-              disabled={isRegistering}
+              asChild
             >
-              {isRegistering ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                <>
-                  Become a Merchant
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              )}
+              <Link href="/become-merchant/onboarding">
+                Start onboarding
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
           )}
         </div>
@@ -251,23 +200,11 @@ export default function BecomeMerchantPage() {
         {/* CTA */}
         {isAuthenticated && user?.role !== 'merchant' && (
           <div className="text-center mt-16">
-            <Button 
-              size="lg" 
-              className="text-lg px-8"
-              onClick={handleBecomeMerchant}
-              disabled={isRegistering}
-            >
-              {isRegistering ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                <>
-                  Become a Merchant Now
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              )}
+            <Button size="lg" className="text-lg px-8" asChild>
+              <Link href="/become-merchant/onboarding">
+                Start onboarding
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
           </div>
         )}

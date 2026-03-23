@@ -29,6 +29,7 @@ export function getInitials(firstName: string, lastName: string): string {
 export function getBookingStatusColor(status: string): string {
   const colors: Record<string, string> = {
     pending_deposit: 'bg-yellow-100 text-yellow-800',
+    pending_date: 'bg-amber-100 text-amber-900',
     deposit_paid: 'bg-blue-100 text-blue-800',
     dates_selected: 'bg-purple-100 text-purple-800',
     confirmed: 'bg-green-100 text-green-800',
@@ -41,6 +42,7 @@ export function getBookingStatusColor(status: string): string {
 export function getBookingStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending_deposit: 'Pending Deposit',
+    pending_date: 'Awaiting travel dates',
     deposit_paid: 'Deposit Paid',
     dates_selected: 'Dates Selected',
     confirmed: 'Confirmed',

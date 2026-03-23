@@ -1,4 +1,4 @@
-import { Booking, User } from '../models';
+import { Booking, PackageBooking, User } from '../models';
 import {
   sendDepositConfirmation,
   sendPaymentInvoice,
@@ -39,6 +39,40 @@ export const notifyDepositPaid = async (bookingId: string): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`Failed to send deposit notification: ${message}`);
+  }
+};
+
+/**
+ * Deposit paid for a promotional package booking (separate from destination Booking)
+ */
+export const notifyPackageDepositPaid = async (packageBookingId: string): Promise<void> => {
+  try {
+    const booking = await PackageBooking.findById(packageBookingId).populate('packageId');
+    if (!booking) {
+      logger.error(`Package booking not found for deposit notification: ${packageBookingId}`);
+      return;
+    }
+
+    const pkg = booking.packageId as unknown as { name: string };
+    await sendDepositConfirmation(
+      booking.userId.toString(),
+      booking.bookingReference,
+      booking.depositPayment.amount,
+      pkg.name
+    );
+    await sendPaymentInvoice({
+      userId: booking.userId.toString(),
+      bookingReference: booking.bookingReference,
+      destinationName: pkg.name,
+      numberOfTravellers: booking.numberOfTravellers,
+      amount: booking.depositPayment.amount,
+      currency: booking.depositPayment.currency || 'AED',
+      transactionId: booking.depositPayment.transactionId,
+      paidAt: booking.depositPayment.paidAt,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Failed to send package deposit notification: ${message}`);
   }
 };
 
