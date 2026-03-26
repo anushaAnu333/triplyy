@@ -1,48 +1,49 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
-import { Check, Calendar, MapPin, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+import { paymentsApi } from '@/lib/api/payments';
 
 export default function ActivityBookingSuccessPage() {
   const params = useParams();
-  const router = useRouter();
   const bookingId = params.id as string;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session_id');
+  const queryClient = useQueryClient();
+  const confirmedRef = useRef(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  // Confirm payment from Stripe session when we have session_id (webhook fallback).
+  useEffect(() => {
+    if (!bookingId || confirmedRef.current) return;
+    confirmedRef.current = true;
+    if (!sessionId) {
+      router.replace(`/bookings/${bookingId}`);
+      return;
+    }
+
+    setIsConfirming(true);
+    paymentsApi
+      .confirmFromSession(sessionId)
+      .then(() => {
+        // Make sure the detail page and lists reflect the updated booking.status.
+        queryClient.invalidateQueries({ queryKey: ['my-activity-bookings'] });
+        queryClient.invalidateQueries({ queryKey: ['activity-booking', bookingId] });
+      })
+      .finally(() => {
+        router.replace(`/bookings/${bookingId}`);
+        setIsConfirming(false);
+      });
+  }, [sessionId, bookingId, queryClient, router]);
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center py-8">
-      <div className="container mx-auto px-4 max-w-2xl">
-        <Card className="text-center">
-          <CardHeader>
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl">Booking Confirmed!</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <p className="text-muted-foreground">
-              Your activity booking has been confirmed successfully. You will receive a confirmation email shortly.
-            </p>
-
-            <div className="bg-muted p-4 rounded-lg space-y-3 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Booking Reference</span>
-                <span className="font-mono font-semibold">{bookingId?.slice(-8) || 'N/A'}</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild>
-                <Link href="/bookings">View My Bookings</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/activities">Browse More Activities</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+      <div className="flex flex-col items-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        {isConfirming ? <p className="text-sm text-muted-foreground mt-3">Finalizing payment...</p> : null}
       </div>
     </div>
   );

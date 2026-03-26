@@ -1,64 +1,162 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Upload, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { merchantActivitiesApi } from '@/lib/api/activities';
 import { useQueryClient } from '@tanstack/react-query';
-import { CURRENCIES, formatCurrencyDisplay } from '@/lib/currencies';
+import { MerchantOnboardingServicesStep } from '@/components/merchant/MerchantOnboardingServicesStep';
+import { MIN_SERVICE_IMAGES } from '@/lib/merchant-onboarding/constants';
+import { validateServiceItem } from '@/lib/merchant-onboarding/validation';
+import type { ServiceItem } from '@/lib/merchant-onboarding/types';
+import type { MutableRefObject } from 'react';
+import { Loader2 } from 'lucide-react';
 
-const activitySchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200, 'Title cannot exceed 200 characters'),
-  description: z.string().min(1, 'Description is required').max(2000, 'Description cannot exceed 2000 characters'),
-  location: z.string().min(1, 'Location is required').max(200, 'Location cannot exceed 200 characters'),
-  price: z.string().min(1, 'Price is required').refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-    message: 'Price must be a positive number',
-  }),
-  currency: z.string().default('AED'),
-});
+interface ServiceSections {
+  basic: boolean;
+  points: boolean;
+  includedExcluded: boolean;
+  images: boolean;
+}
 
-type ActivityFormData = z.infer<typeof activitySchema>;
+function createEmptyService(): ServiceItem {
+  return {
+    id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    title: '',
+    price: '',
+    duration: '',
+    groupSize: '',
+    languages: '',
+    description: '',
+    pointsHeading: '',
+    pointGroups: [{ text: '', subPoints: [] }],
+    includes: [''],
+    excludes: [''],
+    images: [],
+  };
+}
 
 export default function AddActivityPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [location, setLocation] = useState('');
+  const [services, setServices] = useState<ServiceItem[]>([createEmptyService()]);
+  const serviceImageUploadRefs = useRef<Record<string, HTMLInputElement | null>>({} as Record<string, HTMLInputElement | null>);
+  const [serviceOpenSections, setServiceOpenSections] = useState<Record<string, ServiceSections>>({});
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setValue,
-  } = useForm<ActivityFormData>({
-    resolver: zodResolver(activitySchema),
-    defaultValues: {
-      currency: 'AED',
-    },
-  });
+  const getServiceSections = (id: string): ServiceSections =>
+    serviceOpenSections[id] ?? { basic: true, points: false, includedExcluded: false, images: true };
 
-  const selectedCurrency = watch('currency');
+  const toggleServiceSection = (id: string, key: keyof ServiceSections) => {
+    setServiceOpenSections((prev) => {
+      const current = prev[id] ?? { basic: true, points: false, includedExcluded: false, images: true };
+      return { ...prev, [id]: { ...current, [key]: !current[key] } };
+    });
+  };
+
+  const updateService = (id: string, patch: Partial<ServiceItem>) => {
+    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+
+  const addService = () => {
+    // Keep this page aligned with the single-activity submit flow.
+    if (services.length >= 1) {
+      toast({
+        title: 'Only one activity per submission',
+        description: 'Remove the extra service by editing the current one.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setServices((prev) => [...prev, createEmptyService()]);
+  };
+
+  const removeService = (id: string) => {
+    if (services.length <= 1) return;
+    setServices((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const setServiceImages = (id: string, files: File[]) => updateService(id, { images: files.slice(0, 3) });
+
+  const addServicePoint = (id: string) => {
+    const svc = services.find((s) => s.id === id);
+    const groups = svc?.pointGroups?.length ? svc.pointGroups : [{ text: '', subPoints: [] }];
+    updateService(id, { pointGroups: [...groups, { text: '', subPoints: [] }] });
+  };
+
+  const removeServicePoint = (id: string, index: number) => {
+    const svc = services.find((s) => s.id === id);
+    const groups = (svc?.pointGroups ?? []).filter((_, i) => i !== index);
+    updateService(id, { pointGroups: groups.length ? groups : [{ text: '', subPoints: [] }] });
+  };
+
+  const setServicePointText = (id: string, index: number, text: string) => {
+    const svc = services.find((s) => s.id === id);
+    const groups = [...(svc?.pointGroups ?? [{ text: '', subPoints: [] }])];
+    if (!groups[index]) groups[index] = { text: '', subPoints: [] };
+    groups[index] = { ...groups[index], text };
+    updateService(id, { pointGroups: groups });
+  };
+
+  const addServiceSubPoint = (id: string, index: number) => {
+    const svc = services.find((s) => s.id === id);
+    const groups = [...(svc?.pointGroups ?? [{ text: '', subPoints: [] }])];
+    if (!groups[index]) groups[index] = { text: '', subPoints: [] };
+    groups[index] = { ...groups[index], subPoints: [...(groups[index].subPoints || []), ''] };
+    updateService(id, { pointGroups: groups });
+  };
+
+  const setServiceSubPoint = (id: string, index: number, subIndex: number, value: string) => {
+    const svc = services.find((s) => s.id === id);
+    const groups = [...(svc?.pointGroups ?? [{ text: '', subPoints: [] }])];
+    if (!groups[index]) groups[index] = { text: '', subPoints: [] };
+    const sub = [...(groups[index].subPoints || [])];
+    sub[subIndex] = value;
+    groups[index] = { ...groups[index], subPoints: sub };
+    updateService(id, { pointGroups: groups });
+  };
+
+  const removeServiceSubPoint = (id: string, index: number, subIndex: number) => {
+    const svc = services.find((s) => s.id === id);
+    const groups = [...(svc?.pointGroups ?? [{ text: '', subPoints: [] }])];
+    if (!groups[index]) groups[index] = { text: '', subPoints: [] };
+    const sub = (groups[index].subPoints || []).filter((_, i) => i !== subIndex);
+    groups[index] = { ...groups[index], subPoints: sub };
+    updateService(id, { pointGroups: groups });
+  };
+
+  const addServiceListItem = (id: string, key: 'includes' | 'excludes') => {
+    const svc = services.find((s) => s.id === id);
+    const arr = [...((svc?.[key] as string[]) ?? [])];
+    updateService(id, { [key]: [...arr, ''] } as Partial<ServiceItem>);
+  };
+
+  const setServiceListItem = (id: string, key: 'includes' | 'excludes', index: number, value: string) => {
+    const svc = services.find((s) => s.id === id);
+    const arr = [...((svc?.[key] as string[]) ?? [''])];
+    arr[index] = value;
+    updateService(id, { [key]: arr } as Partial<ServiceItem>);
+  };
+
+  const removeServiceListItem = (id: string, key: 'includes' | 'excludes', index: number) => {
+    const svc = services.find((s) => s.id === id);
+    const arr = (((svc?.[key] as string[]) ?? [])).filter((_, i) => i !== index);
+    updateService(id, { [key]: arr.length ? arr : [''] } as Partial<ServiceItem>);
+  };
+
+  const canSubmit = useMemo(() => {
+    const svc = services[0];
+    if (!svc) return false;
+    return validateServiceItem(svc).success && svc.images.length >= MIN_SERVICE_IMAGES && location.trim().length > 0;
+  }, [services, location]);
 
   // Check if user is merchant
   if (!authLoading && isAuthenticated && user?.role !== 'merchant') {
@@ -74,62 +172,93 @@ export default function AddActivityPage() {
     );
   }
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    
-    if (files.length + photos.length > 3) {
+  const handleSubmit = async () => {
+    const svc = services[0];
+    if (!svc) return;
+    const locTrimmed = location.trim();
+    const titleTrimmed = svc.title.trim();
+    const descriptionTrimmed = svc.description.trim();
+
+    if (!locTrimmed) {
+      toast({ title: 'Location is required', description: 'Please enter where this activity happens.', variant: 'destructive' });
+      return;
+    }
+
+    if (titleTrimmed.length > 200) {
+      toast({ title: 'Title is too long', description: 'Title cannot exceed 200 characters.', variant: 'destructive' });
+      return;
+    }
+
+    if (descriptionTrimmed.length > 2000) {
       toast({
-        title: 'Too many photos',
-        description: 'You can upload a maximum of 3 photos',
+        title: 'Description is too long',
+        description: 'Description cannot exceed 2000 characters for activities.',
         variant: 'destructive',
       });
       return;
     }
 
-    const newPhotos = [...photos, ...files];
-    setPhotos(newPhotos);
-
-    // Create previews
-    const newPreviews = files.map((file) => URL.createObjectURL(file));
-    setPhotoPreviews([...photoPreviews, ...newPreviews]);
-  };
-
-  const removePhoto = (index: number) => {
-    const newPhotos = photos.filter((_, i) => i !== index);
-    const newPreviews = photoPreviews.filter((_, i) => i !== index);
-    setPhotos(newPhotos);
-    setPhotoPreviews(newPreviews);
-  };
-
-  const onSubmit = async (data: ActivityFormData) => {
-    if (photos.length === 0) {
-      toast({
-        title: 'Photos required',
-        description: 'Please upload at least one photo',
-        variant: 'destructive',
-      });
+    if (locTrimmed.length > 200) {
+      toast({ title: 'Location is too long', description: 'Location cannot exceed 200 characters.', variant: 'destructive' });
+      return;
+    }
+    const result = validateServiceItem(svc);
+    if (!result.success) {
+      toast({ title: 'Please complete the service details', description: 'Some required fields are missing or invalid.', variant: 'destructive' });
+      return;
+    }
+    if (svc.images.length < MIN_SERVICE_IMAGES) {
+      toast({ title: 'At least one photo is required', description: `Upload at least ${MIN_SERVICE_IMAGES} photo(s).`, variant: 'destructive' });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await merchantActivitiesApi.submit({
-        ...data,
-        price: parseFloat(data.price),
-        photos,
+      const pointGroups = (svc.pointGroups || [])
+        .filter((g) => (g.text || '').trim() || (g.subPoints || []).some((sp) => (sp || '').trim()))
+        .map((g) => ({
+          text: g.text.trim(),
+          subPoints: (g.subPoints || []).map((sp) => sp.trim()).filter(Boolean),
+        }));
+
+      const includes = (svc.includes || []).map((x) => x.trim()).filter(Boolean);
+      const excludes = (svc.excludes || []).map((x) => x.trim()).filter(Boolean);
+
+      const parsedGroupSize = svc.groupSize?.trim() ? parseInt(svc.groupSize, 10) : null;
+
+      const created = await merchantActivitiesApi.submit({
+        title: titleTrimmed,
+        description: descriptionTrimmed,
+        location: locTrimmed,
+        price: parseFloat(svc.price),
+        currency: 'AED',
+        photos: svc.images,
+        duration: svc.duration?.trim() ? svc.duration.trim() : undefined,
+        groupSize: Number.isFinite(parsedGroupSize as number) ? parsedGroupSize : null,
+        languages: svc.languages?.trim() ? svc.languages.trim() : undefined,
+        pointsHeading: svc.pointsHeading?.trim() ? svc.pointsHeading.trim() : undefined,
+        pointGroups: pointGroups.length ? pointGroups : undefined,
+        includes: includes.length ? includes : undefined,
+        excludes: excludes.length ? excludes : undefined,
       });
 
       toast({
-        title: 'Activity submitted!',
-        description: 'Your activity has been submitted and is pending admin approval.',
+        title: created.status === 'approved' ? 'Activity is live!' : 'Activity submitted!',
+        description:
+          created.status === 'approved'
+            ? 'Your activity is now visible to customers.'
+            : 'Your activity has been submitted and is pending admin approval.',
       });
 
       queryClient.invalidateQueries({ queryKey: ['merchant-activities'] });
       router.push('/merchant/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const msg =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to submit activity. Please try again.';
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to submit activity. Please try again.',
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -138,7 +267,7 @@ export default function AddActivityPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 pt-24 pb-8">
+    <div className="min-h-screen bg-muted/30 py-6 pb-8">
       <div className="container mx-auto px-4 max-w-3xl">
         <Card>
           <CardHeader>
@@ -148,151 +277,53 @@ export default function AddActivityPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Title */}
-              <div>
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  {...register('title')}
-                  placeholder="e.g., Desert Safari Experience"
-                  className="mt-1"
-                />
-                {errors.title && (
-                  <p className="text-sm text-destructive mt-1">{errors.title.message}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  {...register('description')}
-                  placeholder="Describe your activity in detail..."
-                  className="mt-1 min-h-[120px]"
-                />
-                {errors.description && (
-                  <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
-                )}
-              </div>
-
-              {/* Location */}
               <div>
                 <Label htmlFor="location">Location *</Label>
                 <Input
                   id="location"
-                  {...register('location')}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g., Dubai, UAE"
                   className="mt-1"
                 />
-                {errors.location && (
-                  <p className="text-sm text-destructive mt-1">{errors.location.message}</p>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  This is used to display and filter activities on the customer side.
+                </p>
               </div>
 
-              {/* Price and Currency */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="price">Price *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    {...register('price')}
-                    placeholder="0.00"
-                    className="mt-1"
-                  />
-                  {errors.price && (
-                    <p className="text-sm text-destructive mt-1">{errors.price.message}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="currency">Currency *</Label>
-                  <Select
-                    value={selectedCurrency}
-                    onValueChange={(value) => setValue('currency', value)}
-                  >
-                    <SelectTrigger id="currency" className="mt-1">
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {CURRENCIES.map((currency) => (
-                        <SelectItem key={currency.code} value={currency.code}>
-                          {currency.code} - {currency.name} ({currency.symbol})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.currency && (
-                    <p className="text-sm text-destructive mt-1">{errors.currency.message}</p>
-                  )}
-                </div>
+              <div className="mt-6">
+                <MerchantOnboardingServicesStep
+                  services={services}
+                  minServiceImages={MIN_SERVICE_IMAGES}
+                  serviceImageUploadRefs={serviceImageUploadRefs as MutableRefObject<Record<string, HTMLInputElement | null>>}
+                  getServiceSections={getServiceSections}
+                  toggleServiceSection={toggleServiceSection}
+                  updateService={updateService}
+                  addService={addService}
+                  removeService={removeService}
+                  addServicePoint={(id) => addServicePoint(id)}
+                  removeServicePoint={(id, index) => removeServicePoint(id, index)}
+                  setServicePointText={(id, index, text) => setServicePointText(id, index, text)}
+                  addServiceSubPoint={(id, index) => addServiceSubPoint(id, index)}
+                  setServiceSubPoint={(id, index, subIndex, value) => setServiceSubPoint(id, index, subIndex, value)}
+                  removeServiceSubPoint={(id, index, subIndex) => removeServiceSubPoint(id, index, subIndex)}
+                  addServiceListItem={addServiceListItem}
+                  setServiceListItem={setServiceListItem}
+                  removeServiceListItem={removeServiceListItem}
+                  setServiceImages={setServiceImages}
+                />
               </div>
 
-              {/* Photos */}
-              <div>
-                <Label>Photos * (1-3 photos)</Label>
-                <div className="mt-2 space-y-4">
-                  {/* Photo Upload Area */}
-                  {photos.length < 3 && (
-                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                      <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                      <Label htmlFor="photos" className="cursor-pointer">
-                        <span className="text-primary font-medium">Click to upload</span> or drag and drop
-                      </Label>
-                      <Input
-                        id="photos"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handlePhotoChange}
-                        className="hidden"
-                      />
-                      <p className="text-sm text-muted-foreground mt-2">
-                        PNG, JPG, WEBP up to 5MB each
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Photo Previews */}
-                  {photoPreviews.length > 0 && (
-                    <div className="grid grid-cols-3 gap-4">
-                      {photoPreviews.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removePhoto(index)}
-                            className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {photos.length === 0 && (
-                  <p className="text-sm text-destructive mt-1">At least one photo is required</p>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                  disabled={isSubmitting}
-                >
+              <div className="flex gap-4 mt-8">
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="flex-1">
+                <Button
+                  type="button"
+                  disabled={isSubmitting || !canSubmit}
+                  className="flex-1"
+                  onClick={handleSubmit}
+                >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -303,7 +334,6 @@ export default function AddActivityPage() {
                   )}
                 </Button>
               </div>
-            </form>
           </CardContent>
         </Card>
       </div>

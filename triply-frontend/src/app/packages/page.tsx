@@ -1,62 +1,80 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, X, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { packagesApi } from '@/lib/api/packages';
 import { PackageCard } from '@/components/packages/PackageCard';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useRouter } from 'next/navigation';
+import {
+  SearchFiltersModal,
+  SearchFiltersStickyBar,
+  countActiveFilters,
+} from '@/components/filters';
 
 export default function PackagesPage() {
   const [search, setSearch] = useState('');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const router = useRouter();
 
   const { data, isLoading } = useQuery({
     queryKey: ['packages', search],
-    queryFn: () => packagesApi.getAll({ search: search || undefined, limit: 50 }),
+    queryFn: () => packagesApi.getAll({ search: search.trim() || undefined, limit: 50 }),
   });
 
   const packages = data?.data ?? [];
 
+  const activeFilterCount = useMemo(
+    () => countActiveFilters([Boolean(search.trim())]),
+    [search]
+  );
+
+  const clearAll = () => setSearch('');
+
   return (
     <div className="min-h-screen">
-      {/* Search */}
-      <section className="bg-white sticky top-20 z-40 border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search packages..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-12 h-12 text-lg rounded-full border-slate-200"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
+      <SearchFiltersModal
+        open={filterModalOpen}
+        onOpenChange={setFilterModalOpen}
+        title="Search packages"
+        description="Find packages by name or keyword."
+        fields={[
+          {
+            id: 'pkg-search',
+            label: 'Search',
+            value: search,
+            onChange: setSearch,
+            placeholder: 'Search packages…',
+          },
+        ]}
+        onClearAll={clearAll}
+      />
 
-      {/* Results */}
-      <section className="py-12 bg-slate-50">
+      <SearchFiltersStickyBar
+        title="Packages"
+        onOpenFilters={() => setFilterModalOpen(true)}
+        activeCount={activeFilterCount}
+      />
+
+      <section className="bg-slate-50 py-10 md:py-12">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="font-display text-2xl font-bold">
-                {isLoading ? 'Loading...' : `${packages.length} Packages`}
-              </h2>
-            </div>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-2">
+            <h2 className="font-display text-2xl font-bold">
+              {isLoading ? 'Loading…' : `${packages.length} packages`}
+            </h2>
+            {!isLoading && activeFilterCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                <button
+                  type="button"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  onClick={() => setFilterModalOpen(true)}
+                >
+                  Edit search
+                </button>
+              </p>
+            ) : null}
           </div>
 
           {isLoading ? (
@@ -64,42 +82,39 @@ export default function PackagesPage() {
               <LoadingSpinner size="lg" />
             </div>
           ) : packages.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
-                <MapPin className="w-12 h-12 text-slate-400" />
+            <div className="py-20 text-center">
+              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-100">
+                <MapPin className="h-12 w-12 text-slate-400" />
               </div>
-              <h3 className="text-2xl font-semibold mb-2">No packages found</h3>
-              <p className="text-muted-foreground mb-6">Try adjusting your search</p>
-              <Button onClick={() => setSearch('')}>Clear Search</Button>
+              <h3 className="mb-2 text-2xl font-semibold">No packages found</h3>
+              <p className="mb-6 text-muted-foreground">Try adjusting your search</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="outline" onClick={clearAll}>
+                  Clear search
+                </Button>
+                <Button onClick={() => setFilterModalOpen(true)}>Open search</Button>
+              </div>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {packages.map((pkg) => (
-                <PackageCard
-                  key={pkg._id}
-                  pkg={pkg}
-                  variant="full"
-                  ctaText="View"
-                />
+                <PackageCard key={pkg._id} pkg={pkg} variant="full" ctaText="View" />
               ))}
             </div>
           )}
         </div>
       </section>
 
-      {/* CTA Banner */}
-      <section className="py-11 bg-brand-orange">
+      <section className="bg-brand-orange py-11">
         <div className="container mx-auto px-4 text-center text-white">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Can't find what you're looking for?
-          </h2>
-          <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-            Contact us and we'll help you plan your perfect package
+          <h2 className="mb-4 text-3xl font-bold md:text-4xl">Can&apos;t find what you&apos;re looking for?</h2>
+          <p className="mx-auto mb-8 max-w-2xl text-xl text-white/80">
+            Contact us and we&apos;ll help you plan your perfect package
           </p>
           <Button
             size="lg"
             onClick={() => router.push('/contact')}
-            className="bg-white text-brand-orange hover:bg-white/90 rounded-full px-8 font-bold"
+            className="rounded-full bg-white px-8 font-bold text-brand-orange hover:bg-white/90"
           >
             Contact Us
           </Button>

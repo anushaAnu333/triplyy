@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import env from './environment';
 import logger from '../utils/logger';
+import { MerchantOnboarding } from '../models';
 
 /**
  * Establishes connection to MongoDB database
@@ -18,6 +19,42 @@ const connectDatabase = async (): Promise<void> => {
 
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
     logger.info(`Database: ${conn.connection.name}`);
+
+    // Ensure onboarding uniqueness rules match our resubmission behavior.
+    // If an older unique index exists on `userId`, it will prevent creating the new `reapplied`
+    // document (and will surface as a Mongo duplicate-key error).
+    const syncMerchantOnboardingIndexes = async (): Promise<void> => {
+      if (env.NODE_ENV === 'production') return;
+
+      try {
+        const indexes = await MerchantOnboarding.collection.indexes();
+        const uniqueUserIdIndexes = indexes.filter(
+          (i) => i.unique === true && i.key && Object.prototype.hasOwnProperty.call(i.key, 'userId')
+        );
+
+        for (const idx of uniqueUserIdIndexes) {
+          if (!idx.name) {
+            logger.warn('Skipping legacy unique index without a name');
+            continue;
+          }
+          logger.warn(`Dropping legacy unique index on MerchantOnboarding.userId: ${idx.name}`);
+          await MerchantOnboarding.collection.dropIndex(idx.name);
+        }
+
+        // Recreate desired partial unique index (only pending/reapplied are unique per user).
+        await MerchantOnboarding.collection.createIndex(
+          { userId: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { status: { $in: ['pending', 'reapplied'] } },
+          }
+        );
+      } catch (error: any) {
+        logger.warn(`Failed to sync MerchantOnboarding indexes: ${error?.message || String(error)}`);
+      }
+    };
+
+    await syncMerchantOnboardingIndexes();
 
     mongoose.connection.on('error', (err) => {
       logger.error(`MongoDB connection error: ${err.message}`);

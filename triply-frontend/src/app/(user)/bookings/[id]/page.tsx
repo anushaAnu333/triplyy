@@ -14,12 +14,41 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { bookingsApi } from '@/lib/api/bookings';
+import { activitiesApi, type Activity, type ActivityBooking as ActivityBookingType } from '@/lib/api/activities';
 import { paymentsApi } from '@/lib/api/payments';
-import { formatDate, formatCurrency, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils';
+import {
+  formatDate,
+  formatCurrency,
+  formatActivityBookingDates,
+  getBookingStatusColor,
+  getBookingStatusLabel,
+} from '@/lib/utils';
 import { Destination } from '@/lib/api/destinations';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { DatePickerModal } from '@/components/booking/DatePickerModal';
-import { ActivityBooking } from '@/lib/api/bookings';
+import { ActivityBooking as LinkedActivityBooking } from '@/lib/api/bookings';
+
+function getActivityBookingStatusColor(status: ActivityBookingType['status']): string {
+  const colors: Record<string, string> = {
+    pending_payment: 'bg-yellow-100 text-yellow-800',
+    payment_completed: 'bg-blue-100 text-blue-800',
+    confirmed: 'bg-green-100 text-green-800',
+    cancelled: 'bg-gray-100 text-gray-800',
+    refunded: 'bg-red-100 text-red-800',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-800';
+}
+
+function getActivityBookingStatusLabel(status: ActivityBookingType['status']): string {
+  const labels: Record<string, string> = {
+    pending_payment: 'Pending Payment',
+    payment_completed: 'Payment Completed',
+    confirmed: 'Confirmed',
+    cancelled: 'Cancelled',
+    refunded: 'Refunded',
+  };
+  return labels[status] || status;
+}
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -32,10 +61,25 @@ export default function BookingDetailPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
-  const { data: booking, isLoading } = useQuery({
+  const {
+    data: booking,
+    isLoading,
+    isError: isDestinationBookingError,
+  } = useQuery({
     queryKey: ['booking', bookingId],
     queryFn: () => bookingsApi.getById(bookingId),
     enabled: isAuthenticated && !!bookingId,
+    retry: false,
+  });
+
+  const {
+    data: activityBooking,
+    isLoading: isActivityBookingLoading,
+  } = useQuery({
+    queryKey: ['activity-booking', bookingId],
+    queryFn: () => activitiesApi.getBookingById(bookingId),
+    enabled: isAuthenticated && !!bookingId && isDestinationBookingError,
+    retry: false,
   });
 
   const cancelMutation = useMutation({
@@ -56,13 +100,32 @@ export default function BookingDetailPage() {
     },
   });
 
+  const cancelActivityBookingMutation = useMutation({
+    mutationFn: () => activitiesApi.cancelActivityBooking(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activity-booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['my-activity-bookings'] });
+      toast({
+        title: 'Booking cancelled',
+        description: 'Your activity booking was cancelled successfully.',
+      });
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to cancel booking. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [authLoading, isAuthenticated, router]);
 
-  if (authLoading || !isAuthenticated || isLoading) {
+  if (authLoading || !isAuthenticated || isLoading || isActivityBookingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -70,7 +133,7 @@ export default function BookingDetailPage() {
     );
   }
 
-  if (!booking) {
+  if (!booking && !activityBooking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
         <h2 className="text-2xl font-bold mb-4">Booking not found</h2>
@@ -81,6 +144,290 @@ export default function BookingDetailPage() {
     );
   }
 
+  // Activity booking route uses the same page file.
+  if (!booking && activityBooking) {
+    const activity = activityBooking.activityId as unknown as Activity;
+    const activityListingApproved = activity?.status === 'approved';
+    const merchantSlotApproved = activityBooking.merchantAvailabilityApproved === true;
+
+    const handlePayNowActivity = async () => {
+      if (!bookingId || isPaymentLoading) return;
+      if (!activityListingApproved || !merchantSlotApproved) return;
+      setIsPaymentLoading(true);
+      try {
+        const { url } = await paymentsApi.createActivityBookingCheckoutSession(bookingId);
+        if (url) window.location.href = url;
+        else throw new Error('Missing Stripe URL');
+      } catch {
+        toast({
+          title: 'Payment failed',
+          description: 'Could not start payment. Please try again.',
+          variant: 'destructive',
+        });
+        setIsPaymentLoading(false);
+      }
+    };
+
+    const canPayNow =
+      activityBooking.status === 'pending_payment' &&
+      activityListingApproved &&
+      merchantSlotApproved;
+
+    return (
+      <div className="min-h-screen bg-muted/30 py-8">
+        <div className="container mx-auto px-4">
+          {/* Back Button */}
+          <Button variant="ghost" asChild className="mb-6">
+            <Link href="/bookings">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Bookings
+            </Link>
+          </Button>
+
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Main Content */}
+            <div className="flex-1 space-y-6">
+              {/* Booking Header Card */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {/* Image */}
+                    <div className="w-full md:w-48 h-36 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={activity.photos?.[0] || '/placeholder-activity.jpg'}
+                        alt={activity.title || 'Activity'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <h1 className="font-display text-2xl md:text-3xl font-bold">
+                            {activity.title || 'Activity'}
+                          </h1>
+                          <div className="flex items-center gap-2 text-muted-foreground mt-1">
+                            <MapPin className="w-4 h-4" />
+                            <span>{activity.location || ''}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${getActivityBookingStatusColor(
+                            activityBooking.status
+                          )}`}
+                        >
+                          {getActivityBookingStatusLabel(activityBooking.status)}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Booking Reference</p>
+                          <p className="font-mono font-semibold">{activityBooking.bookingReference}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Travellers</p>
+                          <p className="font-semibold">{activityBooking.numberOfParticipants}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Duration</p>
+                          <p className="font-semibold">{activity.duration || 'Flexible time'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Booked On</p>
+                          <p className="font-semibold">{formatDate(activityBooking.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Travel Dates Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Travel Dates
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-semibold">
+                        {activityBooking.selectedDate
+                          ? formatActivityBookingDates(activityBooking)
+                          : 'N/A'}
+                      </p>
+                      {activityBooking.selectedDate ? (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {(activityBooking.selectedDates?.length ?? 0) > 1
+                            ? 'Selected dates for your booking'
+                            : 'Selected for your booking'}
+                        </p>
+                      ) : null}
+                    </div>
+                    {activityBooking.status === 'pending_payment' ? (
+                      <div className="text-right">
+                        {!activityListingApproved ? (
+                          <>
+                            <p className="text-amber-600 font-medium">Waiting for platform approval</p>
+                            <p className="text-sm text-muted-foreground">We will email you when your booking can proceed.</p>
+                          </>
+                        ) : !merchantSlotApproved ? (
+                          <>
+                            <p className="text-amber-600 font-medium">Waiting for merchant confirmation</p>
+                            <p className="text-sm text-muted-foreground">
+                              The host must confirm availability for your selected date(s) before you can pay.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-amber-600 font-medium">Payment pending</p>
+                            <p className="text-sm text-muted-foreground">Complete payment to secure your seat</p>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Details Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Payment Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <span>Payment amount</span>
+                    <span className="font-semibold">
+                      {formatCurrency(activityBooking.payment.amount, activityBooking.payment.currency)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <span>Payment Status</span>
+                    <span
+                      className={`font-semibold ${
+                        activityBooking.payment.paymentStatus === 'completed'
+                          ? 'text-green-600'
+                          : activityBooking.payment.paymentStatus === 'failed'
+                            ? 'text-red-600'
+                            : activityBooking.payment.paymentStatus === 'refunded'
+                              ? 'text-red-600'
+                              : 'text-amber-600'
+                      }`}
+                    >
+                      {activityBooking.payment.paymentStatus.charAt(0).toUpperCase() +
+                        activityBooking.payment.paymentStatus.slice(1)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Special Requests */}
+              {activityBooking.specialRequests ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5" />
+                      Special Requests
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">{activityBooking.specialRequests}</p>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
+
+            {/* Sidebar Actions */}
+            <div className="lg:w-80">
+              <Card className="sticky top-24">
+                <CardHeader>
+                  <CardTitle>Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {canPayNow ? (
+                    <Button
+                      className="w-full"
+                      onClick={handlePayNowActivity}
+                      disabled={isPaymentLoading}
+                    >
+                      {isPaymentLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <CreditCard className="w-4 h-4 mr-2" />
+                      )}
+                      Pay now
+                    </Button>
+                  ) : null}
+
+                  {activityBooking.status === 'pending_payment' && !canPayNow ? (
+                    <div className="p-4 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
+                      {!activityListingApproved
+                        ? 'Payment unlocks after the activity is approved on the platform.'
+                        : 'Payment unlocks after the merchant confirms availability for your date.'}
+                    </div>
+                  ) : null}
+
+                  {activityBooking.status === 'pending_payment' && (
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      disabled={cancelActivityBookingMutation.isPending}
+                      onClick={() => {
+                        if (confirm('Are you sure you want to cancel this activity booking?')) {
+                          cancelActivityBookingMutation.mutate();
+                        }
+                      }}
+                    >
+                      {cancelActivityBookingMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <X className="w-4 h-4 mr-2" />
+                      )}
+                      Cancel booking
+                    </Button>
+                  )}
+
+                  {activity?._id ? (
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link href={`/activities/${activity._id}`}>
+                        <MapPin className="w-4 h-4 mr-2" />
+                        View activity
+                      </Link>
+                    </Button>
+                  ) : null}
+
+                  {activityBooking.status === 'confirmed' && (
+                    <div className="p-4 bg-green-50 rounded-lg text-center">
+                      <Check className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                      <p className="font-semibold text-green-600">Trip Confirmed!</p>
+                      <p className="text-sm text-green-600/80">
+                        Get ready for your adventure
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // From here on we render the destination booking UI.
+  if (!booking) return null;
+
   const destination = booking.destinationId as Destination;
   const canSelectDates = booking.status === 'deposit_paid';
   const canCancel = ['pending_deposit', 'deposit_paid', 'dates_selected'].includes(booking.status);
@@ -90,8 +437,7 @@ export default function BookingDetailPage() {
     if (!bookingId || isPaymentLoading) return;
     setIsPaymentLoading(true);
     try {
-      // TODO: remove testAmount after live Stripe testing – use full deposit in production
-      const { url } = await paymentsApi.createCheckoutSession(bookingId, { testAmount: 2 });
+      const { url } = await paymentsApi.createCheckoutSession(bookingId);
       if (url) window.location.href = url;
     } catch {
       toast({
@@ -313,7 +659,7 @@ export default function BookingDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {booking.linkedActivityBookings.map((activityBooking: ActivityBooking) => {
+                    {booking.linkedActivityBookings.map((activityBooking: LinkedActivityBooking) => {
                       const activity = activityBooking.activityId as any;
                       return (
                         <div

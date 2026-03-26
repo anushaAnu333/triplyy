@@ -14,6 +14,7 @@ import {
   FileText,
   Package,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,6 +54,12 @@ function getStatusBadge(status: OnboardingStatus) {
   switch (status) {
     case 'pending':
       return <Badge variant="outline" className="text-amber-600 border-amber-600">Pending</Badge>;
+    case 'reapplied':
+      return (
+        <Badge variant="outline" className="text-violet-700 border-violet-600">
+          Reapplied
+        </Badge>
+      );
     case 'approved':
       return <Badge className="bg-green-600">Approved</Badge>;
     case 'rejected':
@@ -62,6 +69,19 @@ function getStatusBadge(status: OnboardingStatus) {
   }
 }
 
+function needsReview(status: OnboardingStatus): boolean {
+  return status === 'pending' || status === 'reapplied';
+}
+
+function getPreviousOnboardingId(
+  prev: MerchantOnboardingApplication['previousApplicationId']
+): string | null {
+  if (!prev) return null;
+  if (typeof prev === 'string') return prev;
+  if (typeof prev === 'object' && '_id' in prev && typeof prev._id === 'string') return prev._id;
+  return null;
+}
+
 function isImagePath(path: string): boolean {
   const lower = path.toLowerCase();
   return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp');
@@ -69,6 +89,36 @@ function isImagePath(path: string): boolean {
 
 function isPdfPath(path: string): boolean {
   return path.toLowerCase().endsWith('.pdf');
+}
+
+function toLabel(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (c) => c.toUpperCase());
+}
+
+function renderUnknown(value: unknown): string {
+  if (value == null) return '—';
+  if (typeof value === 'string') return value.trim() || '—';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '—';
+    return value
+      .map((item) => {
+        if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+          return String(item);
+        }
+        return JSON.stringify(item);
+      })
+      .join(', ');
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  return '—';
 }
 
 /** Renders document: image as thumbnail (fetched with auth) or PDF as "Open" link that fetches blob and opens in new tab */
@@ -218,8 +268,10 @@ export default function AdminOnboardingDetailPage() {
 
   const approveMutation = useMutation({
     mutationFn: () => adminOnboardingApi.approve(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-onboarding', 'admin-onboarding-detail'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding-detail', id] });
+      await queryClient.refetchQueries({ queryKey: ['admin-onboarding'] });
       toast({ title: 'Application approved' });
       router.push('/admin/onboarding');
     },
@@ -231,16 +283,36 @@ export default function AdminOnboardingDetailPage() {
 
   const rejectMutation = useMutation({
     mutationFn: (reason?: string) => adminOnboardingApi.reject(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-onboarding', 'admin-onboarding-detail'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding-detail', id] });
+      await queryClient.refetchQueries({ queryKey: ['admin-onboarding'] });
       setRejectOpen(false);
       setRejectionReason('');
-      toast({ title: 'Application rejected' });
+      toast({
+        title: 'Application rejected',
+        description: 'The applicant has been notified by email.',
+      });
       router.push('/admin/onboarding');
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast({ title: 'Failed to reject', description: msg, variant: 'destructive' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => adminOnboardingApi.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding-detail', id] });
+      await queryClient.refetchQueries({ queryKey: ['admin-onboarding'] });
+      toast({ title: 'Application deleted' });
+      router.push('/admin/onboarding');
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast({ title: 'Failed to delete', description: msg, variant: 'destructive' });
     },
   });
 
@@ -288,7 +360,23 @@ export default function AdminOnboardingDetailPage() {
   }
 
   const app = application as MerchantOnboardingApplication;
+  const previousOnboardingId = getPreviousOnboardingId(app.previousApplicationId);
   const biz = (app.businessInfo || {}) as Record<string, unknown>;
+  const knownBusinessKeys = new Set([
+    'businessName',
+    'contactPerson',
+    'designation',
+    'phone',
+    'emirate',
+    'website',
+    'bankName',
+    'accountHolderName',
+    'accountNumber',
+    'vatTrn',
+    'currency',
+    'email',
+  ]);
+  const extraBusinessEntries = Object.entries(biz).filter(([key]) => !knownBusinessKeys.has(key));
 
   return (
     <div className="min-h-screen bg-muted/30 py-6">
@@ -316,6 +404,26 @@ export default function AdminOnboardingDetailPage() {
               {getStatusBadge(app.status)}
             </div>
 
+            {app.status === 'reapplied' && (
+              <div className="rounded-md border border-violet-200 bg-violet-50 dark:bg-violet-950/30 p-3 text-sm">
+                <p className="font-medium text-violet-900 dark:text-violet-100">Resubmission</p>
+                <p className="text-muted-foreground mt-0.5">
+                  This is a new application after a previous rejection.
+                  {previousOnboardingId && (
+                    <>
+                      {' '}
+                      <Link
+                        href={`/admin/onboarding/${previousOnboardingId}`}
+                        className="text-primary underline font-medium"
+                      >
+                        View previous application
+                      </Link>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+
             <div>
               <h4 className="font-medium flex items-center gap-2 mb-2">
                 <User className="h-4 w-4" /> Contact
@@ -323,6 +431,10 @@ export default function AdminOnboardingDetailPage() {
               <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                 <span>Applicant email</span>
                 <span>{(app.userId as { email?: string })?.email}</span>
+                <span>Applicant phone</span>
+                <span>{(app.userId as { phoneNumber?: string })?.phoneNumber || '—'}</span>
+                <span>Business email</span>
+                <span>{(biz.email as string) || '—'}</span>
                 <span>Business name</span>
                 <span>{biz.businessName as string}</span>
                 <span>Contact person</span>
@@ -349,6 +461,16 @@ export default function AdminOnboardingDetailPage() {
                   )}
                 </span>
               </div>
+              {extraBusinessEntries.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                  {extraBusinessEntries.map(([key, value]) => (
+                    <div key={key} className="contents">
+                      <span>{toLabel(key)}</span>
+                      <span className="break-words">{renderUnknown(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -363,8 +485,10 @@ export default function AdminOnboardingDetailPage() {
                 <span>{biz.bankName as string}</span>
                 <span>Account holder</span>
                 <span>{biz.accountHolderName as string}</span>
-                <span>IBAN</span>
-                <span className="font-mono text-xs break-all">{biz.iban as string}</span>
+                <span>Account number</span>
+                <span className="font-mono text-xs break-all">
+                  {(biz.accountNumber ?? biz.iban) as string}
+                </span>
                 <span>VAT / TRN</span>
                 <span>{(biz.vatTrn as string) || '—'}</span>
                 <span>Currency</span>
@@ -445,6 +569,13 @@ export default function AdminOnboardingDetailPage() {
                           <span className="font-semibold">Excludes:</span> {s.excludes}
                         </p>
                       )}
+                      {Object.entries(s as Record<string, unknown>)
+                        .filter(([key]) => !['title', 'price', 'duration', 'groupSize', 'languages', 'description', 'includes', 'excludes'].includes(key))
+                        .map(([key, value]) => (
+                          <p key={key}>
+                            <span className="font-semibold">{toLabel(key)}:</span> {renderUnknown(value)}
+                          </p>
+                        ))}
                     </div>
                   </li>
                 ))}
@@ -462,7 +593,7 @@ export default function AdminOnboardingDetailPage() {
               Submitted {formatDate(app.createdAt)}
             </p>
 
-            {app.status === 'pending' && (
+            {needsReview(app.status) && (
               <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
                 <Button
                   onClick={() => approveMutation.mutate()}
@@ -481,6 +612,25 @@ export default function AdminOnboardingDetailPage() {
                 </Button>
               </div>
             )}
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  const ok = window.confirm('Delete this onboarding application permanently?');
+                  if (!ok) return;
+                  deleteMutation.mutate();
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete application
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

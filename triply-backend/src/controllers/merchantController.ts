@@ -8,6 +8,61 @@ import { uploadImages } from '../utils/cloudinary';
 import { cleanupFiles } from '../utils/upload';
 import logger from '../utils/logger';
 
+const MERCHANT_TERMS_VERSION = '2026-03';
+
+/**
+ * Record merchant terms acceptance for current user
+ * POST /api/v1/merchant/terms/accept
+ */
+export const acceptMerchantTerms = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const user = await User.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+    if (user.role === 'admin') throw new AppError('Admins cannot register as merchants', 400);
+
+    const requestedVersion = typeof req.body?.version === 'string' ? req.body.version.trim() : '';
+    user.merchantTermsAcceptedAt = new Date();
+    user.merchantTermsVersion = requestedVersion || MERCHANT_TERMS_VERSION;
+    await user.save();
+
+    successResponse(res, 'Merchant terms accepted', {
+      merchantTermsAcceptedAt: user.merchantTermsAcceptedAt,
+      merchantTermsVersion: user.merchantTermsVersion,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get the logged-in user's latest merchant onboarding status
+ * GET /api/v1/merchant/onboarding/status
+ */
+export const getMyOnboardingStatus = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const latest = await MerchantOnboarding.findOne({ userId })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    successResponse(res, 'Onboarding status retrieved', {
+      status: latest?.status ?? null,
+      applicationId: latest?._id?.toString() ?? null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Submit merchant onboarding application (multi-step form + documents)
  * POST /api/v1/merchant/onboarding
@@ -25,6 +80,28 @@ export const submitOnboarding = async (
     if (!user) throw new AppError('User not found', 404);
     if (user.role === 'merchant') throw new AppError('You are already a merchant', 400);
     if (user.role === 'admin') throw new AppError('Admins cannot register as merchants', 400);
+
+    const rejectedLatest = await MerchantOnboarding.findOne({ userId, status: 'rejected' }).sort({
+      updatedAt: -1,
+    });
+
+    const existingInReview = await MerchantOnboarding.findOne({
+      userId,
+      status: { $in: ['pending', 'reapplied'] },
+    });
+    if (existingInReview) {
+      throw new AppError(
+        'You already have a merchant application awaiting review. Please wait for the admin team before submitting again.',
+        400
+      );
+    }
+
+    if (!user.merchantTermsAcceptedAt && !rejectedLatest) {
+      throw new AppError(
+        'Please accept merchant terms and conditions before onboarding (POST /api/v1/merchant/terms/accept), or complete the terms step in the app.',
+        400
+      );
+    }
 
     const businessType = req.body.businessType as string;
     const categoriesRaw = req.body.categories;
@@ -53,30 +130,68 @@ export const submitOnboarding = async (
       throw new AppError('At least one service is required', 400);
     }
 
-    const documentPaths: Record<string, string> = {};
+    // Bank details: account number (replaces legacy `iban` field)
+    const acctRaw =
+      typeof businessInfo.accountNumber === 'string' ? businessInfo.accountNumber.trim() : '';
+    const legacyIban = typeof businessInfo.iban === 'string' ? businessInfo.iban.trim() : '';
+    const accountNumber = acctRaw || legacyIban;
+    if (!accountNumber) {
+      throw new AppError('Account number is required in business information', 400);
+    }
+    const digitsOnly = accountNumber.replace(/[\s-]/g, '');
+    if (digitsOnly.length < 5 || digitsOnly.length > 34 || !/^\d+$/.test(digitsOnly)) {
+      throw new AppError('Account number must be 5–34 digits (spaces or dashes allowed)', 400);
+    }
+    businessInfo.accountNumber = accountNumber;
+    delete businessInfo.iban;
+
+    const newUploadPaths: Record<string, string | string[]> = {};
     if (files && files.length > 0) {
       files.forEach((file) => {
         if (file.fieldname && file.path) {
-          documentPaths[file.fieldname] = file.path;
+          const existing = newUploadPaths[file.fieldname];
+          if (!existing) {
+            newUploadPaths[file.fieldname] = file.path;
+          } else if (Array.isArray(existing)) {
+            newUploadPaths[file.fieldname] = [...existing, file.path];
+          } else {
+            newUploadPaths[file.fieldname] = [existing, file.path];
+          }
           filePaths.push(file.path);
         }
       });
     }
 
+    const isResubmission = !!rejectedLatest;
+    const mergedDocumentPaths: Record<string, string | string[]> = isResubmission
+      ? {
+          // Keep old document paths for any docs the user didn't re-upload
+          ...((rejectedLatest?.documentPaths || {}) as Record<string, string | string[]>),
+          ...newUploadPaths,
+        }
+      : newUploadPaths;
     const onboarding = await MerchantOnboarding.create({
       userId,
       businessType,
       categories,
       businessInfo,
-      documentPaths,
+      documentPaths: mergedDocumentPaths,
       services,
-      status: 'pending',
+      status: isResubmission ? 'reapplied' : 'pending',
+      previousApplicationId: isResubmission ? rejectedLatest!._id : undefined,
     });
 
-    createdResponse(res, 'Onboarding submitted successfully. Awaiting admin approval.', {
-      applicationId: onboarding._id,
-      role: user.role,
-    });
+    createdResponse(
+      res,
+      isResubmission
+        ? 'Onboarding resubmitted successfully. Awaiting admin approval.'
+        : 'Onboarding submitted successfully. Awaiting admin approval.',
+      {
+        applicationId: onboarding._id,
+        role: user.role,
+        resubmitted: isResubmission,
+      }
+    );
   } catch (error) {
     if (filePaths.length > 0) cleanupFiles(filePaths);
     next(error);
@@ -136,12 +251,113 @@ export const submitActivity = async (
       throw new AppError('Only merchants can submit activities', 403);
     }
 
-    const { title, description, location, price, currency } = req.body;
+    const {
+      title,
+      description,
+      location,
+      price,
+      currency,
+      duration,
+      groupSize,
+      languages,
+      pointsHeading,
+      pointGroups,
+      includes,
+      excludes,
+    } = req.body;
 
     // Validate required fields
     if (!title || !description || !location || !price) {
       throw new AppError('Title, description, location, and price are required', 400);
     }
+
+    const parseOptionalString = (val: unknown): string | undefined => {
+      if (val === undefined || val === null) return undefined;
+      if (typeof val !== 'string') return undefined;
+      const trimmed = val.trim();
+      return trimmed ? trimmed : undefined;
+    };
+
+    const parseOptionalNumber = (val: unknown): number | undefined => {
+      if (val === undefined || val === null) return undefined;
+      const raw = typeof val === 'string' ? val : String(val);
+      const trimmed = raw.trim();
+      if (!trimmed || trimmed === 'null') return undefined;
+      const parsed = parseInt(trimmed, 10);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+    };
+
+    const parseOptionalStringArray = (val: unknown): string[] | undefined => {
+      if (val === undefined || val === null) return undefined;
+
+      // If multer parsed the field as an array, normalize it.
+      if (Array.isArray(val)) {
+        const arr = val
+          .map((x) => (typeof x === 'string' ? x.trim() : String(x).trim()))
+          .filter(Boolean);
+        return arr.length ? arr : undefined;
+      }
+
+      if (typeof val !== 'string') return undefined;
+      const trimmed = val.trim();
+      if (!trimmed) return undefined;
+
+      // Prefer JSON payload when available.
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          const arr = parsed.map((x) => (typeof x === 'string' ? x.trim() : String(x).trim())).filter(Boolean);
+          return arr.length ? arr : undefined;
+        }
+      } catch {
+        // Fall back to treating it as a single value.
+      }
+
+      return [trimmed];
+    };
+
+    const parseOptionalPointGroups = (
+      val: unknown
+    ): Array<{ text: string; subPoints: string[] }> | undefined => {
+      if (val === undefined || val === null) return undefined;
+
+      const normalizeGroups = (groups: unknown): Array<{ text: string; subPoints: string[] }> | undefined => {
+        if (!Array.isArray(groups)) return undefined;
+        const normalized: Array<{ text: string; subPoints: string[] }> = [];
+        for (const g of groups) {
+          if (!g || typeof g !== 'object') continue;
+          const record = g as { text?: unknown; subPoints?: unknown };
+          const text = typeof record.text === 'string' ? record.text.trim() : '';
+          const subs = Array.isArray(record.subPoints) ? record.subPoints : [];
+          const subPoints = subs
+            .map((sp) => (typeof sp === 'string' ? sp.trim() : String(sp).trim()))
+            .filter(Boolean);
+          if (!text && subPoints.length === 0) continue;
+          normalized.push({ text, subPoints });
+        }
+        return normalized.length ? normalized : undefined;
+      };
+
+      if (Array.isArray(val)) return normalizeGroups(val);
+      if (typeof val !== 'string') return undefined;
+
+      const trimmed = val.trim();
+      if (!trimmed) return undefined;
+      try {
+        const parsed = JSON.parse(trimmed);
+        return normalizeGroups(parsed);
+      } catch {
+        return undefined;
+      }
+    };
+
+    const optionalDuration = parseOptionalString(duration);
+    const optionalGroupSize = parseOptionalNumber(groupSize);
+    const optionalLanguages = parseOptionalString(languages);
+    const optionalPointsHeading = parseOptionalString(pointsHeading);
+    const optionalPointGroups = parseOptionalPointGroups(pointGroups);
+    const optionalIncludes = parseOptionalStringArray(includes);
+    const optionalExcludes = parseOptionalStringArray(excludes);
 
     // Check if files were uploaded
     const files = req.files as Express.Multer.File[];
@@ -218,6 +434,13 @@ export const submitActivity = async (
       price: parseFloat(price),
       currency: currency || 'AED',
       photos: photoUrls,
+      duration: optionalDuration,
+      groupSize: optionalGroupSize,
+      languages: optionalLanguages,
+      pointsHeading: optionalPointsHeading,
+      pointGroups: optionalPointGroups,
+      includes: optionalIncludes,
+      excludes: optionalExcludes,
       status: 'pending',
     });
 
@@ -258,6 +481,93 @@ export const getMerchantActivities = async (
 };
 
 /**
+ * Get single merchant activity by id
+ * GET /api/v1/merchant/activities/:activityId
+ */
+export const getMerchantActivityById = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (req.user.role !== 'merchant') {
+      throw new AppError('Only merchants can view their activities', 403);
+    }
+
+    const { activityId } = req.params as { activityId: string };
+    const activity = await Activity.findOne({ _id: activityId, merchantId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .select('-__v');
+
+    if (!activity) {
+      throw new AppError('Activity not found', 404);
+    }
+
+    successResponse(res, 'Activity retrieved successfully', activity);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Merchant confirms the requested date/slot is available so the customer can pay
+ * PUT /api/v1/merchant/activity-bookings/:bookingId/approve-availability
+ */
+export const approveActivityBookingMerchantAvailability = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (req.user.role !== 'merchant') {
+      throw new AppError('Only merchants can approve availability', 403);
+    }
+
+    const merchantId = req.user.userId;
+    const { bookingId } = req.params;
+
+    const booking = await ActivityBooking.findById(bookingId).populate(
+      'activityId',
+      'merchantId status'
+    );
+    if (!booking) {
+      throw new AppError('Activity booking not found', 404);
+    }
+
+    const activity = booking.activityId as { merchantId?: mongoose.Types.ObjectId; status?: string };
+    if (!activity?.merchantId || String(activity.merchantId) !== String(merchantId)) {
+      throw new AppError('Activity booking not found', 404);
+    }
+
+    if (activity.status !== 'approved') {
+      throw new AppError(
+        'The activity must be platform-approved before you can confirm availability for this booking',
+        400
+      );
+    }
+
+    if (booking.status !== 'pending_payment') {
+      throw new AppError('Only pending activity bookings can be updated', 400);
+    }
+
+    if (booking.merchantAvailabilityApproved) {
+      throw new AppError('Availability has already been approved for this booking', 400);
+    }
+
+    booking.merchantAvailabilityApproved = true;
+    booking.merchantAvailabilityApprovedAt = new Date();
+    await booking.save();
+
+    successResponse(res, 'Availability approved. The customer can now complete payment.', {
+      bookingReference: booking.bookingReference,
+      merchantAvailabilityApproved: booking.merchantAvailabilityApproved,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get merchant dashboard stats
  * GET /api/v1/merchant/dashboard
  */
@@ -281,7 +591,7 @@ export const getMerchantDashboard = async (
     const bookings = await ActivityBooking.find({
       activityId: { $in: activityIds },
     })
-      .populate('activityId', 'title')
+      .populate('activityId', 'title status')
       .populate('userId', 'firstName lastName email')
       .sort({ createdAt: -1 });
 
@@ -340,13 +650,14 @@ export const getMerchantDashboard = async (
       };
     });
 
-    // Get recent bookings (last 5)
+    // Get recent bookings (last 8 by activity)
     const recentBookings = bookings
-      .slice(0, 5)
+      .slice(0, 8)
       .map((booking) => ({
         _id: booking._id,
         bookingReference: booking.bookingReference,
         activityTitle: (booking.activityId as any)?.title || 'Unknown',
+        activityStatus: (booking.activityId as any)?.status,
         customerName: booking.customerName,
         selectedDate: booking.selectedDate,
         numberOfParticipants: booking.numberOfParticipants,
@@ -356,8 +667,100 @@ export const getMerchantDashboard = async (
         status: booking.status,
         paymentStatus: booking.payment.paymentStatus,
         payoutStatus: booking.payment.merchantPayoutStatus,
+        merchantAvailabilityApproved: Boolean(booking.merchantAvailabilityApproved),
         createdAt: booking.createdAt,
       }));
+
+    // Latest paid bookings (customer completed payment) — surfaced prominently for merchants
+    const recentPaidBookings = bookings
+      .filter((b) => b.payment.paymentStatus === 'completed')
+      .sort(
+        (a, b) =>
+          new Date(b.payment.paidAt || b.updatedAt).getTime() -
+          new Date(a.payment.paidAt || a.updatedAt).getTime()
+      )
+      .slice(0, 6)
+      .map((booking) => ({
+        _id: booking._id,
+        bookingReference: booking.bookingReference,
+        activityTitle: (booking.activityId as any)?.title || 'Unknown',
+        activityStatus: (booking.activityId as any)?.status,
+        customerName: booking.customerName,
+        selectedDate: booking.selectedDate,
+        numberOfParticipants: booking.numberOfParticipants,
+        amount: booking.payment.amount,
+        merchantAmount: booking.payment.merchantAmount,
+        currency: booking.payment.currency,
+        status: booking.status,
+        paymentStatus: booking.payment.paymentStatus,
+        payoutStatus: booking.payment.merchantPayoutStatus,
+        paidAt: booking.payment.paidAt || booking.updatedAt,
+        createdAt: booking.createdAt,
+      }));
+
+    const bookingStatusCounts = {
+      pending_payment: 0,
+      payment_completed: 0,
+      confirmed: 0,
+      cancelled: 0,
+      refunded: 0,
+    };
+    bookings.forEach((b) => {
+      const k = b.status as keyof typeof bookingStatusCounts;
+      if (k in bookingStatusCounts) bookingStatusCounts[k] += 1;
+    });
+
+    const pendingListings = activities.filter((a) => a.status === 'pending').length;
+    const rejectedListings = activities.filter((a) => a.status === 'rejected').length;
+
+    const needsConfirmAvailabilityAll = bookings.filter(
+      (b) =>
+        b.status === 'pending_payment' &&
+        (b.activityId as { status?: string })?.status === 'approved' &&
+        !b.merchantAvailabilityApproved
+    );
+    const needsConfirmAvailabilityList = needsConfirmAvailabilityAll.slice(0, 8);
+
+    const needsConfirmBookingAll = bookings.filter((b) => b.status === 'payment_completed');
+    const needsConfirmBookingList = needsConfirmBookingAll.slice(0, 8);
+
+    const awaitingGuestPaymentCount = bookings.filter(
+      (b) =>
+        b.status === 'pending_payment' &&
+        (b.activityId as { status?: string })?.status === 'approved' &&
+        b.merchantAvailabilityApproved &&
+        b.payment.paymentStatus === 'pending'
+    ).length;
+
+    const mapBookingSummary = (booking: (typeof bookings)[0]) => ({
+      _id: booking._id,
+      bookingReference: booking.bookingReference,
+      activityTitle: (booking.activityId as { title?: string })?.title || 'Unknown',
+      customerName: booking.customerName,
+      selectedDate: booking.selectedDate,
+      numberOfParticipants: booking.numberOfParticipants,
+      merchantAmount: booking.payment.merchantAmount,
+      currency: booking.payment.currency,
+      status: booking.status,
+      paymentStatus: booking.payment.paymentStatus,
+    });
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const horizon = new Date(startOfToday);
+    horizon.setDate(horizon.getDate() + 60);
+
+    const upcomingBookings = bookings
+      .filter((b) => {
+        if (['cancelled', 'refunded'].includes(b.status)) return false;
+        const runDate = b.lastActivityDate || b.selectedDate;
+        if (!runDate) return false;
+        const d = new Date(runDate);
+        return d >= startOfToday && d <= horizon;
+      })
+      .sort((a, b) => new Date(a.selectedDate).getTime() - new Date(b.selectedDate).getTime())
+      .slice(0, 8)
+      .map((booking) => mapBookingSummary(booking));
 
     successResponse(res, 'Dashboard data retrieved successfully', {
       stats: {
@@ -368,9 +771,129 @@ export const getMerchantDashboard = async (
         completedBookings,
         totalActivities: activities.length,
         approvedActivities: activities.filter((a) => a.status === 'approved').length,
+        pendingListings,
+        rejectedListings,
+        awaitingGuestPayment: awaitingGuestPaymentCount,
+        needsConfirmAvailability: needsConfirmAvailabilityAll.length,
+        needsConfirmBooking: needsConfirmBookingAll.length,
       },
+      bookingStatusCounts,
+      needsConfirmAvailability: needsConfirmAvailabilityList.map(mapBookingSummary),
+      needsConfirmBooking: needsConfirmBookingList.map(mapBookingSummary),
+      upcomingBookings,
       activitiesWithStats,
       recentBookings,
+      recentPaidBookings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get a single activity booking for the current merchant
+ * GET /api/v1/merchant/bookings/:bookingId
+ */
+export const getMerchantBookingById = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (req.user.role !== 'merchant') {
+      throw new AppError('Only merchants can view bookings', 403);
+    }
+
+    const merchantId = req.user.userId;
+    const { bookingId } = req.params;
+
+    const booking = await ActivityBooking.findById(bookingId)
+      .populate('activityId', 'title photos status location description merchantId price currency')
+      .populate('userId', 'firstName lastName email phoneNumber')
+      .populate('availabilityId', 'date availableSlots bookedSlots')
+      .populate('availabilityIds', 'date availableSlots bookedSlots');
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    const activity = booking.activityId as { merchantId?: mongoose.Types.ObjectId };
+    if (!activity?.merchantId || String(activity.merchantId) !== String(merchantId)) {
+      throw new AppError('Booking not found', 404);
+    }
+
+    const act = booking.activityId as {
+      _id: mongoose.Types.ObjectId;
+      title?: string;
+      photos?: string[];
+      status?: string;
+      location?: string;
+      description?: string;
+      price?: number;
+      currency?: string;
+    };
+
+    successResponse(res, 'Booking retrieved successfully', {
+      _id: booking._id,
+      bookingReference: booking.bookingReference,
+      merchantAvailabilityApproved: Boolean(booking.merchantAvailabilityApproved),
+      merchantAvailabilityApprovedAt: booking.merchantAvailabilityApprovedAt,
+      activity: {
+        _id: act._id,
+        title: act.title,
+        photos: act.photos || [],
+        status: act.status,
+        location: act.location,
+        description: act.description,
+        price: act.price,
+        currency: act.currency,
+      },
+      customer: {
+        name: booking.customerName,
+        email: booking.customerEmail,
+        phone: booking.customerPhone,
+      },
+      user: booking.userId
+        ? {
+            firstName: (booking.userId as { firstName?: string }).firstName,
+            lastName: (booking.userId as { lastName?: string }).lastName,
+            email: (booking.userId as { email?: string }).email,
+            phoneNumber: (booking.userId as { phoneNumber?: string }).phoneNumber,
+          }
+        : undefined,
+      selectedDate: booking.selectedDate,
+      selectedDates: booking.selectedDates,
+      lastActivityDate: booking.lastActivityDate,
+      numberOfParticipants: booking.numberOfParticipants,
+      specialRequests: booking.specialRequests,
+      availability: booking.availabilityId
+        ? {
+            _id: (booking.availabilityId as { _id: mongoose.Types.ObjectId })._id,
+            date: (booking.availabilityId as { date?: Date }).date,
+            availableSlots: (booking.availabilityId as { availableSlots?: number }).availableSlots,
+            bookedSlots: (booking.availabilityId as { bookedSlots?: number }).bookedSlots,
+          }
+        : undefined,
+      availabilities:
+        Array.isArray(booking.availabilityIds) && booking.availabilityIds.length > 0
+          ? (booking.availabilityIds as { _id: mongoose.Types.ObjectId; date?: Date }[]).map((a) => ({
+              _id: a._id,
+              date: a.date,
+            }))
+          : undefined,
+      payment: {
+        amount: booking.payment.amount,
+        merchantAmount: booking.payment.merchantAmount,
+        triplyCommission: booking.payment.triplyCommission,
+        currency: booking.payment.currency,
+        paymentStatus: booking.payment.paymentStatus,
+        merchantPayoutStatus: booking.payment.merchantPayoutStatus,
+        merchantPayoutDate: booking.payment.merchantPayoutDate,
+        paidAt: booking.payment.paidAt,
+      },
+      status: booking.status,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
     });
   } catch (error) {
     next(error);
@@ -392,10 +915,12 @@ export const getMerchantBookings = async (
     }
 
     const userId = req.user.userId;
-    const { page = '1', limit = '10', status } = req.query as {
+    const { page = '1', limit = '10', status, attention, search } = req.query as {
       page?: string;
       limit?: string;
       status?: string;
+      attention?: string;
+      search?: string;
     };
 
     const pageNum = parseInt(page, 10) || 1;
@@ -406,19 +931,52 @@ export const getMerchantBookings = async (
     const activities = await Activity.find({ merchantId: userId });
     const activityIds = activities.map((a) => a._id);
 
-    // Build query
-    const query: any = {
-      activityId: { $in: activityIds },
-    };
+    const andParts: Record<string, unknown>[] = [{ activityId: { $in: activityIds } }];
 
-    if (status) {
-      query.status = status;
+    if (attention === 'availability') {
+      const approvedIds = await Activity.find({ merchantId: userId, status: 'approved' }).distinct(
+        '_id'
+      );
+      const allowed = approvedIds.filter((id) =>
+        activityIds.some((aid) => aid.toString() === id.toString())
+      );
+      andParts.push({ activityId: { $in: allowed.length ? allowed : [] } });
+      andParts.push({ status: 'pending_payment' });
+      andParts.push({ merchantAvailabilityApproved: { $ne: true } });
+    } else if (attention === 'confirm_booking') {
+      andParts.push({ status: 'payment_completed' });
+    } else if (attention === 'awaiting_guest') {
+      andParts.push({ status: 'pending_payment' });
+      andParts.push({ merchantAvailabilityApproved: true });
+      andParts.push({ 'payment.paymentStatus': 'pending' });
+    } else if (status) {
+      andParts.push({ status });
     }
+
+    const searchTrimmed = typeof search === 'string' ? search.trim() : '';
+    if (searchTrimmed.length > 0) {
+      const escaped = searchTrimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(escaped, 'i');
+      const titleMatchIds = await Activity.find({
+        merchantId: userId,
+        title: re,
+      }).distinct('_id');
+      andParts.push({
+        $or: [
+          { bookingReference: re },
+          { customerName: re },
+          { customerEmail: re },
+          ...(titleMatchIds.length ? [{ activityId: { $in: titleMatchIds } }] : []),
+        ],
+      });
+    }
+
+    const query = andParts.length === 1 ? andParts[0] : { $and: andParts };
 
     // Get bookings with pagination
     const [bookings, total] = await Promise.all([
       ActivityBooking.find(query)
-        .populate('activityId', 'title photos')
+        .populate('activityId', 'title photos status')
         .populate('userId', 'firstName lastName email')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -429,10 +987,12 @@ export const getMerchantBookings = async (
     const bookingsData = bookings.map((booking) => ({
       _id: booking._id,
       bookingReference: booking.bookingReference,
+      merchantAvailabilityApproved: Boolean(booking.merchantAvailabilityApproved),
       activity: {
         _id: (booking.activityId as any)?._id,
         title: (booking.activityId as any)?.title,
         photos: (booking.activityId as any)?.photos || [],
+        status: (booking.activityId as any)?.status,
       },
       customer: {
         name: booking.customerName,
@@ -449,6 +1009,7 @@ export const getMerchantBookings = async (
         paymentStatus: booking.payment.paymentStatus,
         merchantPayoutStatus: booking.payment.merchantPayoutStatus,
         merchantPayoutDate: booking.payment.merchantPayoutDate,
+        paidAt: booking.payment.paidAt,
       },
       status: booking.status,
       createdAt: booking.createdAt,

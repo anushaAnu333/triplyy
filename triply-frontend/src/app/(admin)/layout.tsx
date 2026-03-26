@@ -18,6 +18,7 @@ const adminNavItems = [
   { href: '/admin/destinations', label: 'Destinations', icon: MapPin },
   { href: '/admin/packages', label: 'Packages', icon: Package },
   { href: '/admin/package-bookings', label: 'Package bookings', icon: ClipboardList },
+  { href: '/admin/activity-bookings', label: 'Activity Bookings', icon: Calendar },
   { href: '/admin/activities', label: 'Activities', icon: Store },
   { href: '/admin/onboarding', label: 'Merchant Onboarding', icon: Briefcase },
   { href: '/admin/availability', label: 'Availability', icon: Clock },

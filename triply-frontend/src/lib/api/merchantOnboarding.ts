@@ -28,6 +28,23 @@ export interface OnboardingResponse {
   applicationId?: string;
 }
 
+export type MerchantOnboardingStatus = 'pending' | 'reapplied' | 'approved' | 'rejected';
+
+export interface MyOnboardingStatusResponse {
+  status: MerchantOnboardingStatus | null;
+  applicationId: string | null;
+}
+
+const MERCHANT_TERMS_VERSION = '2026-03';
+
+export async function acceptMerchantTerms(version = MERCHANT_TERMS_VERSION): Promise<{
+  merchantTermsAcceptedAt?: string;
+  merchantTermsVersion?: string;
+}> {
+  const response = await api.post('/merchant/terms/accept', { version });
+  return response.data?.data ?? {};
+}
+
 /**
  * Submit merchant onboarding application (multipart: JSON fields + files)
  */
@@ -67,5 +84,10 @@ export async function submitMerchantOnboarding(payload: SubmitOnboardingPayload)
   const response = await api.post('/merchant/onboarding', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return response.data?.data ?? response.data;
+}
+
+export async function getMyOnboardingStatus(): Promise<MyOnboardingStatusResponse> {
+  const response = await api.get('/merchant/onboarding/status');
   return response.data?.data ?? response.data;
 }

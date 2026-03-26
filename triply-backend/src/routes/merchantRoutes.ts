@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import {
   registerAsMerchant,
+  acceptMerchantTerms,
+  getMyOnboardingStatus,
   submitOnboarding,
   submitActivity,
   getMerchantActivities,
+  getMerchantActivityById,
   getMerchantDashboard,
+  approveActivityBookingMerchantAvailability,
+  getMerchantBookingById,
   getMerchantBookings,
   getActivityAvailability,
   blockActivityDates,
@@ -23,6 +28,12 @@ router.post(
   (req, res, next) => registerAsMerchant(req as AuthRequest, res, next)
 );
 
+router.post(
+  '/terms/accept',
+  authenticate as any,
+  (req, res, next) => acceptMerchantTerms(req as AuthRequest, res, next)
+);
+
 // Merchant onboarding (multi-step form + file uploads)
 router.post(
   '/onboarding',
@@ -37,6 +48,9 @@ router.post(
 
 // All other routes require merchant authentication
 router.use(authenticate as any);
+
+// Get merchant onboarding status
+router.get('/onboarding/status', (req, res, next) => getMyOnboardingStatus(req as AuthRequest, res, next));
 
 // Submit new activity (with file upload)
 router.post(
@@ -56,9 +70,24 @@ router.get('/activities', (req, res, next) =>
   getMerchantActivities(req as AuthRequest, res, next)
 );
 
+router.get('/activities/:activityId', (req, res, next) =>
+  getMerchantActivityById(req as AuthRequest, res, next)
+);
+
 // Get merchant dashboard
 router.get('/dashboard', (req, res, next) =>
   getMerchantDashboard(req as AuthRequest, res, next)
+);
+
+// Merchant confirms slot/date availability — enables customer payment
+router.put(
+  '/activity-bookings/:bookingId/approve-availability',
+  (req, res, next) => approveActivityBookingMerchantAvailability(req as AuthRequest, res, next)
+);
+
+// Single booking (must be before /bookings list)
+router.get('/bookings/:bookingId', (req, res, next) =>
+  getMerchantBookingById(req as AuthRequest, res, next)
 );
 
 // Get merchant's bookings

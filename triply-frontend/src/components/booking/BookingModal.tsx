@@ -116,8 +116,7 @@ export function BookingModal({
         ? result.booking.id
         : String(result.booking.id);
 
-      // TODO: remove testAmount after live Stripe testing – use full deposit in production
-      const { url } = await paymentsApi.createCheckoutSession(bookingId, { testAmount: 2 });
+      const { url } = await paymentsApi.createCheckoutSession(bookingId);
       onClose();
       window.location.href = url;
       

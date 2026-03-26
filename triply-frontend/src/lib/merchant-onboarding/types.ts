@@ -20,7 +20,7 @@ export interface BusinessInfo {
   website?: string;
   bankName: string;
   accountHolderName: string;
-  iban: string;
+  accountNumber: string;
   vatTrn?: string;
   currency: string;
 }

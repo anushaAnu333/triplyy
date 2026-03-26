@@ -602,14 +602,7 @@ export const handleActivityBookingPaymentSuccess = async (
   booking.payment.transactionId = transactionId;
   await booking.save();
 
-  if (booking.availabilityId) {
-    const availability = await ActivityAvailability.findById(booking.availabilityId);
-    if (availability) {
-      availability.bookedSlots = (availability.bookedSlots || 0) + booking.numberOfParticipants;
-      await availability.save();
-      logger.info(`Updated availability bookedSlots for activity booking ${booking.bookingReference}`);
-    }
-  }
+  // Slots were already reserved when the booking was created (pending_payment), including each day for multi-day bookings.
   logger.info(`[STRIPE] Activity booking ${booking.bookingReference} payment completed`);
 };
 

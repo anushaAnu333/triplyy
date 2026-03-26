@@ -10,7 +10,7 @@ import {
   Users, Shield, Loader2, Phone 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { destinationsApi } from '@/lib/api/destinations';
@@ -342,46 +342,92 @@ export default function DestinationDetailPage() {
 
           {/* Booking Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardHeader>
-                <div className="flex items-baseline justify-between">
-                  <CardTitle className="font-display text-3xl">
-                    {formatCurrency(destination.depositAmount, destination.currency)}
-                  </CardTitle>
-                  <span className="text-muted-foreground">deposit</span>
+            <div className="sticky top-24 max-w-[320px] mx-auto lg:mx-0 rounded-2xl overflow-hidden border border-border bg-card">
+              <div className="bg-[#111] px-5 pt-5 pb-4">
+                <span className="inline-block rounded-full bg-brand-orange px-2.5 py-1 text-[10px] font-bold tracking-[0.08em] uppercase text-white mb-2.5">
+                  Early Bird
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[34px] leading-none font-extrabold text-brand-orange tabular-nums">
+                    {destination.depositAmount.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-white/60 font-medium">
+                    {destination.currency} / deposit
+                  </span>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Key Benefits */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    <span>1-year calendar access</span>
+                <p className="mt-1 text-[11px] text-white/45 tracking-[0.04em]">
+                  {destination.duration.days} Days · {destination.duration.nights} Nights · {destination.country} · Land only
+                </p>
+                <div className="my-3 h-px bg-white/10" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/45">Standard price</span>
+                  <div className="inline-flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white/35 line-through">
+                      Coming soon
+                    </span>
+                    <span className="rounded-full bg-brand-orange/15 px-2 py-0.5 text-[11px] font-semibold text-brand-orange">
+                      Early bird active
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Users className="w-5 h-5 text-primary" />
-                    <span>Flexible group sizes</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Shield className="w-5 h-5 text-primary" />
-                    <span>Secure payment</span>
-                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 py-5">
+                <div className="mb-4 flex items-center justify-center gap-1.5 rounded-lg border border-brand-orange/25 bg-brand-orange/10 px-3 py-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-orange animate-pulse" />
+                  <span className="text-[11px] font-semibold text-brand-orange">
+                    Early bird - limited spots available
+                  </span>
                 </div>
 
-                {/* Book Button */}
-                <Button 
-                  size="lg" 
-                  className="w-full text-lg py-6 bg-brand-orange hover:bg-brand-orange/90 text-white border-0"
+                <div className="mb-4 flex items-center justify-between rounded-xl bg-muted px-3.5 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground">
+                      Book with deposit
+                    </span>
+                    <span className="text-xl font-extrabold text-foreground">
+                      {formatCurrency(destination.depositAmount, destination.currency)}
+                    </span>
+                  </div>
+                  <span className="max-w-[120px] text-right text-[11px] text-muted-foreground">
+                    Balance due 15-21 days before arrival
+                  </span>
+                </div>
+
+                <ul className="mb-4 space-y-2.5">
+                  <li className="flex items-center gap-2.5 text-[13px] font-medium text-muted-foreground">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-orange/10">
+                      <Calendar className="h-3.5 w-3.5 text-brand-orange" />
+                    </span>
+                    <span>1-year calendar access</span>
+                  </li>
+                  <li className="flex items-center gap-2.5 text-[13px] font-medium text-muted-foreground">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-orange/10">
+                      <Users className="h-3.5 w-3.5 text-brand-orange" />
+                    </span>
+                    <span>Flexible group sizes</span>
+                  </li>
+                  <li className="flex items-center gap-2.5 text-[13px] font-medium text-muted-foreground">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-orange/10">
+                      <Shield className="h-3.5 w-3.5 text-brand-orange" />
+                    </span>
+                    <span>Secure payment - UAE licensed</span>
+                  </li>
+                </ul>
+
+                <Button
+                  size="lg"
+                  className="w-full rounded-[10px] bg-brand-orange py-6 text-sm font-bold tracking-[0.04em] text-white hover:bg-brand-orange/90"
                   onClick={handleBookNow}
                 >
-                  Book Now
+                  Book Now - {formatCurrency(destination.depositAmount, destination.currency)} Deposit
                 </Button>
 
-                <p className="text-xs text-center text-muted-foreground">
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">
                   Pay only the deposit now. Select your dates later.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       </section>

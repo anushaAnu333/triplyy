@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { DollarSign, Filter, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -18,6 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { affiliatesApi } from '@/lib/api/affiliates';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { SearchFiltersModal, SearchFiltersTriggerButton } from '@/components/filters';
 
 const statusOptions = [
   { value: 'all', label: 'All Status' },
@@ -32,6 +34,7 @@ export default function AffiliateCommissionsPage() {
   
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['affiliate-commissions', page, statusFilter],
@@ -72,25 +75,21 @@ export default function AffiliateCommissionsPage() {
 
   return (
     <div className="min-h-screen bg-muted/30 py-8">
-      <div className="container mx-auto px-4">
-        {/* Back Button */}
-        <Button variant="ghost" asChild className="mb-6">
-          <Link href="/affiliate/dashboard">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Link>
-        </Button>
-
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="font-display text-3xl font-bold">Commission History</h1>
-            <p className="text-muted-foreground">Track all your earned commissions</p>
-          </div>
-          
+      <SearchFiltersModal
+        open={filterModalOpen}
+        onOpenChange={setFilterModalOpen}
+        title="Filter commissions"
+        description="Show commissions by payout status."
+        fields={[]}
+        onClearAll={() => setStatusFilter('all')}
+        clearLabel="Reset to all"
+        applyLabel="Done"
+      >
+        <div className="space-y-2">
+          <Label htmlFor="commission-status-filter">Status</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
-              <Filter className="w-4 h-4 mr-2" />
+            <SelectTrigger id="commission-status-filter" className="h-11 w-full">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -101,6 +100,30 @@ export default function AffiliateCommissionsPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+      </SearchFiltersModal>
+
+      <div className="container mx-auto px-4">
+        {/* Back Button */}
+        <Button variant="ghost" asChild className="mb-6">
+          <Link href="/affiliate/dashboard">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Link>
+        </Button>
+
+        {/* Header */}
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h1 className="font-display text-3xl font-bold">Commission History</h1>
+            <p className="text-muted-foreground">Track all your earned commissions</p>
+          </div>
+
+          <SearchFiltersTriggerButton
+            onClick={() => setFilterModalOpen(true)}
+            activeCount={statusFilter !== 'all' ? 1 : 0}
+            label="Filters"
+          />
         </div>
 
         {/* Commissions List */}

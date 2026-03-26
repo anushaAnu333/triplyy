@@ -90,39 +90,41 @@ export default function ActivityBookingModal({
   // Create booking mutation - now handles multiple dates
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      // Create bookings for each selected date
-      const bookings = await Promise.all(
-        selectedDates.map(date =>
-          activitiesApi.createBooking(activity._id, {
-            selectedDate: date.toISOString(),
-            numberOfParticipants: data.numberOfParticipants,
-            ...(requireCustomerDetails ? {
-              customerName: (data as any).customerName || '',
-              customerEmail: (data as any).customerEmail || '',
-              customerPhone: (data as any).customerPhone,
-              specialRequests: (data as any).specialRequests,
-            } : {
-              customerName: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'User',
+      const sorted = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
+      const payload = {
+        selectedDates: sorted.map((d) => d.toISOString()),
+        numberOfParticipants: data.numberOfParticipants,
+        ...(requireCustomerDetails
+          ? {
+              customerName: (data as { customerName?: string }).customerName || '',
+              customerEmail: (data as { customerEmail?: string }).customerEmail || '',
+              customerPhone: (data as { customerPhone?: string }).customerPhone,
+              specialRequests: (data as { specialRequests?: string }).specialRequests,
+            }
+          : {
+              customerName:
+                user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'User',
               customerEmail: user?.email || '',
             }),
-          } as any)
-        )
-      );
-      return bookings;
+      };
+      return activitiesApi.createBooking(activity._id, payload);
     },
-    onSuccess: (bookingsData) => {
-      // If onBookingComplete callback is provided, use add-to-cart mode
+    onSuccess: (bookingData) => {
       if (onBookingComplete && selectedDates.length > 0) {
-        // For add-to-cart, just use the first date (or we could handle multiple)
-        onBookingComplete(selectedDates[0], bookingsData[0]?.numberOfParticipants || 1);
+        onBookingComplete(selectedDates[0], bookingData.numberOfParticipants || 1);
         reset();
         setSelectedDates([]);
         setStep('calendar');
       } else {
-        // Standalone mode: redirect to payment page for first booking
-        if (bookingsData.length > 0) {
-          router.push(`/payment/activity/${bookingsData[0]._id}`);
+        const bookingId = bookingData._id;
+        if (activity.status !== 'approved') {
+          toast({
+            title: 'Waiting for approval',
+            description:
+              'We will email you when payment is available. You can also return here from your booking details.',
+          });
         }
+        router.push(`/bookings/${bookingId}`);
         onClose();
       }
     },
@@ -199,7 +201,7 @@ export default function ActivityBookingModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">{activity.title}</DialogTitle>
           <DialogDescription>{activity.location}</DialogDescription>
@@ -262,24 +264,31 @@ export default function ActivityBookingModal({
         )}
 
         {step === 'details' && selectedDates.length > 0 && (
-          <form onSubmit={handleSubmit(onSubmitDetails)} className="space-y-4">
-            <div className="py-4">
-              <div className="bg-muted p-4 rounded-lg mb-4">
-                <p className="text-sm text-muted-foreground">Selected dates:</p>
-                <div className="mt-1 space-y-1">
-                  {selectedDates.map((date, idx) => (
-                    <p key={idx} className="font-semibold">
-                      {format(date, 'PPP')}
+          <form onSubmit={handleSubmit(onSubmitDetails)} className="space-y-6">
+            <div className="pt-4">
+              <div className="bg-muted/40 border border-border rounded-xl p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Selected dates</p>
+                    <div className="mt-3 space-y-1">
+                      {selectedDates.map((date, idx) => (
+                        <p key={idx} className="font-semibold text-sm">
+                          {format(date, 'PPP')}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Total Price</p>
+                    <p className="text-2xl font-extrabold tabular-nums mt-1">
+                      {formatCurrency(totalPrice, activity.currency)}
                     </p>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <span className="font-semibold">Total Price</span>
-                  <span className="text-lg font-bold">{formatCurrency(totalPrice, activity.currency)}</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="numberOfParticipants">Number of Participants *</Label>
               <Input
                 id="numberOfParticipants"
@@ -287,7 +296,7 @@ export default function ActivityBookingModal({
                 min="1"
                 max="50"
                 {...register('numberOfParticipants', { valueAsNumber: true })}
-                className="mt-1"
+                className="mt-0"
               />
               {errors.numberOfParticipants && (
                 <p className="text-sm text-destructive mt-1">{errors.numberOfParticipants.message}</p>
@@ -296,54 +305,54 @@ export default function ActivityBookingModal({
 
             {/* Only show customer details form if NOT in add-to-cart mode */}
             {requireCustomerDetails && (
-              <>
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="customerName">Name *</Label>
                   <Input
                     id="customerName"
                     {...register('customerName' as any)}
                     placeholder="Your full name"
-                    className="mt-1"
+                    className="mt-0"
                   />
                   {(errors as any).customerName && (
                     <p className="text-sm text-destructive mt-1">{(errors as any).customerName.message}</p>
                   )}
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="customerEmail">Email *</Label>
                   <Input
                     id="customerEmail"
                     type="email"
                     {...register('customerEmail' as any)}
                     placeholder="your.email@example.com"
-                    className="mt-1"
+                    className="mt-0"
                   />
                   {(errors as any).customerEmail && (
                     <p className="text-sm text-destructive mt-1">{(errors as any).customerEmail.message}</p>
                   )}
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="customerPhone">Phone (Optional)</Label>
                   <Input
                     id="customerPhone"
                     {...register('customerPhone' as any)}
                     placeholder="+971 XX XXX XXXX"
-                    className="mt-1"
+                    className="mt-0"
                   />
                 </div>
 
-                <div>
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
                   <Textarea
                     id="specialRequests"
                     {...register('specialRequests' as any)}
                     placeholder="Any special requests or questions..."
-                    className="mt-1 min-h-[80px]"
+                    className="mt-0 min-h-[90px]"
                   />
                 </div>
-              </>
+              </div>
             )}
 
             {onBookingComplete && (
@@ -352,7 +361,7 @@ export default function ActivityBookingModal({
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="pt-2 flex gap-3">
               <Button type="button" variant="outline" onClick={() => setStep('calendar')} className="flex-1">
                 Back
               </Button>
@@ -371,11 +380,10 @@ export default function ActivityBookingModal({
                 ) : (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    Proceed to Payment
+                    Check Availability
                   </>
                 )}
               </Button>
-            </div>
             </div>
           </form>
         )}

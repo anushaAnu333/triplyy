@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, MapPin, Clock, Filter, ArrowRight } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -16,9 +17,12 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
 import { bookingsApi } from '@/lib/api/bookings';
+import { activitiesApi } from '@/lib/api/activities';
 import { formatDate, formatCurrency, getBookingStatusColor, getBookingStatusLabel } from '@/lib/utils';
 import { Destination } from '@/lib/api/destinations';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { ActivityBookingCard } from '@/components/activities/ActivityBookingCard';
+import { SearchFiltersModal, SearchFiltersTriggerButton } from '@/components/filters';
 
 const statusOptions = [
   { value: 'all', label: 'All Bookings' },
@@ -35,6 +39,7 @@ export default function BookingsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['bookings', page, statusFilter],
@@ -44,6 +49,15 @@ export default function BookingsPage() {
       statusFilter === 'all' ? undefined : statusFilter
     ),
     enabled: isAuthenticated,
+  });
+
+  const {
+    data: activityBookingsData,
+    isLoading: activityBookingsLoading,
+  } = useQuery({
+    queryKey: ['my-activity-bookings', 1],
+    queryFn: () => activitiesApi.getMyActivityBookings(1, 5),
+    enabled: isAuthenticated && !authLoading,
   });
 
   useEffect(() => {
@@ -62,29 +76,48 @@ export default function BookingsPage() {
 
   return (
     <div className="min-h-screen bg-muted/30 py-8">
+      <SearchFiltersModal
+        open={filterModalOpen}
+        onOpenChange={setFilterModalOpen}
+        title="Filter bookings"
+        description="Show your destination bookings by status."
+        fields={[]}
+        onClearAll={() => setStatusFilter('all')}
+        clearLabel="Reset to all"
+        applyLabel="Done"
+      >
+        <div className="space-y-2">
+          <Label htmlFor="booking-status-filter">Status</Label>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger id="booking-status-filter" className="h-11 w-full">
+              <Filter className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </SearchFiltersModal>
+
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="font-display text-3xl font-bold">My Bookings</h1>
             <p className="text-muted-foreground">Manage your travel bookings</p>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchFiltersTriggerButton
+              onClick={() => setFilterModalOpen(true)}
+              activeCount={statusFilter !== 'all' ? 1 : 0}
+              label="Filters"
+            />
             <Button asChild>
               <Link href="/destinations">New Booking</Link>
             </Button>
@@ -221,6 +254,42 @@ export default function BookingsPage() {
             })}
           </div>
         )}
+
+        {/* Activity bookings */}
+        <div className="mt-10">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="font-display text-2xl font-bold">My Activity Bookings</h2>
+              <p className="text-muted-foreground">Track your booked activities</p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href="/bookings/activity">View all</Link>
+            </Button>
+          </div>
+
+          {activityBookingsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <LoadingSpinner size="lg" />
+            </div>
+          ) : (activityBookingsData?.data?.length ?? 0) === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <MapPin className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-xl font-semibold mb-2">No activity bookings found</h3>
+                <p className="text-muted-foreground mb-6">Book an activity and it will appear here after payment.</p>
+                <Button asChild>
+                  <Link href="/activities">Explore Activities</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {activityBookingsData?.data.map((booking) => (
+                <ActivityBookingCard key={booking._id} booking={booking} />
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Pagination */}
         {data && data.meta.totalPages > 1 && (

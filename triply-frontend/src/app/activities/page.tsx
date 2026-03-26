@@ -1,18 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, MapPin, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { MapPin, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { activitiesApi, Activity } from '@/lib/api/activities';
 import ActivityBookingModal from '@/components/activities/ActivityBookingModal';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  SearchFiltersModal,
+  SearchFiltersStickyBar,
+  countActiveFilters,
+} from '@/components/filters';
 
 export default function ActivitiesPage() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
 
@@ -22,8 +28,8 @@ export default function ActivitiesPage() {
       activitiesApi.getAll({
         page: 1,
         limit: 12,
-        search: search || undefined,
-        location: location || undefined,
+        search: search.trim() || undefined,
+        location: location.trim() || undefined,
       }),
   });
 
@@ -32,39 +38,52 @@ export default function ActivitiesPage() {
     setBookingModalOpen(true);
   };
 
+  const activeFilterCount = useMemo(
+    () => countActiveFilters([Boolean(search.trim()), Boolean(location.trim())]),
+    [search, location]
+  );
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setLocation('');
+  };
+
   return (
-    <div className="min-h-screen bg-muted/30 pt-24 pb-8">
+    <div className="min-h-screen bg-muted/30 py-6 pb-10">
+      <SearchFiltersModal
+        open={filterModalOpen}
+        onOpenChange={setFilterModalOpen}
+        title="Search & filters"
+        description="Search activities by keyword and filter by location."
+        fields={[
+          {
+            id: 'act-search',
+            label: 'Search',
+            value: search,
+            onChange: setSearch,
+            placeholder: 'Search activities…',
+          },
+          {
+            id: 'act-location',
+            label: 'Location',
+            value: location,
+            onChange: setLocation,
+            placeholder: 'City or area…',
+            icon: <MapPin className="h-4 w-4" aria-hidden />,
+          },
+        ]}
+        onClearAll={clearAllFilters}
+      />
+
+      <SearchFiltersStickyBar
+        title="Activities"
+        onOpenFilters={() => setFilterModalOpen(true)}
+        activeCount={activeFilterCount}
+      />
+
       <div className="container mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Browse Activities</h1>
-          <p className="text-muted-foreground">
-            Discover amazing activities and experiences
-          </p>
-        </div>
+        <p className="mb-6 text-muted-foreground">Discover amazing activities and experiences</p>
 
-        {/* Search and Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search activities..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Filter by location..."
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Activities Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -72,34 +91,45 @@ export default function ActivitiesPage() {
         ) : !data || data.data.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No activities found</p>
+              <p className="mb-4 text-muted-foreground">No activities found</p>
+              <Button variant="outline" onClick={() => setFilterModalOpen(true)}>
+                Adjust search & filters
+              </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {data.data.map((activity) => (
-              <Card key={activity._id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card
+                key={activity._id}
+                className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
+                onClick={() => router.push(`/activities/${activity._id}`)}
+              >
                 <div className="relative h-48">
                   <img
                     src={activity.photos[0] || '/placeholder-activity.jpg'}
                     alt={activity.title}
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 </div>
                 <CardContent className="p-4">
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-1">{activity.title}</h3>
-                  <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
+                  <h3 className="mb-2 line-clamp-1 text-lg font-semibold">{activity.title}</h3>
+                  <p className="mb-2 flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3" />
                     {activity.location}
                   </p>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {activity.description}
-                  </p>
+                  <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{activity.description}</p>
                   <div className="flex items-center justify-between">
                     <p className="text-lg font-bold">
                       {activity.currency} {activity.price}
                     </p>
-                    <Button onClick={() => handleBookNow(activity)} size="sm">
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBookNow(activity);
+                      }}
+                      size="sm"
+                    >
                       Book Now
                     </Button>
                   </div>
@@ -109,8 +139,7 @@ export default function ActivitiesPage() {
           </div>
         )}
 
-        {/* Booking Modal */}
-        {selectedActivity && (
+        {selectedActivity ? (
           <ActivityBookingModal
             activity={selectedActivity}
             isOpen={bookingModalOpen}
@@ -119,7 +148,7 @@ export default function ActivitiesPage() {
               setSelectedActivity(null);
             }}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );

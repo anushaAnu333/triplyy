@@ -181,6 +181,8 @@ export const login = async (
         lastName: user.lastName,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
+        merchantTermsAcceptedAt: user.merchantTermsAcceptedAt,
+        merchantTermsVersion: user.merchantTermsVersion,
       },
     });
   } catch (error) {
@@ -379,6 +381,8 @@ export const getMe = async (
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       profileImage: user.profileImage,
+      merchantTermsAcceptedAt: user.merchantTermsAcceptedAt,
+      merchantTermsVersion: user.merchantTermsVersion,
       createdAt: user.createdAt,
     });
   } catch (error) {

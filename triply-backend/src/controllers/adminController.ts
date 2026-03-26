@@ -3,6 +3,7 @@ import { Booking, User, Destination, Commission, Activity } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../types/custom';
 import AppError from '../utils/AppError';
+import { notifyActivityApprovedPaymentPrompt } from '../services/notificationService';
 
 /**
  * Get dashboard statistics
@@ -342,12 +343,43 @@ export const getAllActivities = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const activities = await Activity.find()
+    const { status } = req.query as { status?: string };
+    const filter: Record<string, unknown> = {};
+    if (status && ['pending', 'approved'].includes(status)) {
+      filter.status = status;
+    }
+
+    const activities = await Activity.find(filter)
       .populate('merchantId', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .select('-__v');
 
     successResponse(res, 'Activities retrieved successfully', activities);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get single activity (admin)
+ * GET /api/v1/admin/activities/:id
+ */
+export const getActivityById = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const activity = await Activity.findById(id)
+      .populate('merchantId', 'firstName lastName email')
+      .select('-__v');
+
+    if (!activity) {
+      throw new AppError('Activity not found', 404);
+    }
+
+    successResponse(res, 'Activity retrieved successfully', activity);
   } catch (error) {
     next(error);
   }
@@ -378,6 +410,10 @@ export const approveActivity = async (
     activity.status = 'approved';
     activity.rejectionReason = undefined;
     await activity.save();
+
+    // If guests already created pending-payment bookings, email them
+    // so they can complete payment to reserve their seat.
+    await notifyActivityApprovedPaymentPrompt(activity._id.toString());
 
     successResponse(res, 'Activity approved successfully', activity);
   } catch (error) {

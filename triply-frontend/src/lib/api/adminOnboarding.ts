@@ -2,7 +2,15 @@ import api from './axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
-export type OnboardingStatus = 'pending' | 'approved' | 'rejected';
+export type OnboardingStatus = 'pending' | 'reapplied' | 'approved' | 'rejected';
+
+/** Populated previous application (detail endpoint) */
+export interface PreviousOnboardingApplicationRef {
+  _id: string;
+  status: OnboardingStatus;
+  createdAt: string;
+  businessInfo?: Record<string, unknown>;
+}
 
 /** URL for an onboarding document (use with api.get(..., { responseType: 'blob' }) to fetch with auth) */
 export function getOnboardingDocumentUrl(applicationId: string, docKey: string): string {
@@ -34,6 +42,8 @@ export interface MerchantOnboardingApplication {
   }>;
   status: OnboardingStatus;
   rejectionReason?: string;
+  /** ObjectId string when not populated */
+  previousApplicationId?: string | PreviousOnboardingApplicationRef;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +60,7 @@ export interface OnboardingListResponse {
 
 export const adminOnboardingApi = {
   getList: async (
+    /** Use `pending` to include both pending and reapplied (awaiting review). */
     status?: OnboardingStatus,
     page = 1,
     limit = 10
@@ -76,5 +87,9 @@ export const adminOnboardingApi = {
 
   reject: async (id: string, rejectionReason?: string): Promise<void> => {
     await api.put(`/admin/onboarding/${id}/reject`, { rejectionReason });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/onboarding/${id}`);
   },
 };

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, XCircle, Loader2, AlertCircle, ChevronDown, ChevronUp, MapPin, DollarSign } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertCircle, MapPin, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,6 @@ export default function AdminActivitiesPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
 
@@ -36,7 +35,7 @@ export default function AdminActivitiesPage() {
   const approveMutation = useMutation({
     mutationFn: (id: string) => adminActivitiesApi.approve(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-activities'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-activities', activeTab] });
       toast({
         title: 'Activity approved',
         description: 'The activity has been approved and is now visible to customers.',
@@ -55,7 +54,7 @@ export default function AdminActivitiesPage() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       adminActivitiesApi.reject(id, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-activities'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-activities', activeTab] });
       setRejectDialogOpen(false);
       setRejectionReason('');
       setSelectedActivity(null);
@@ -127,9 +126,12 @@ export default function AdminActivitiesPage() {
             ) : (
               <div className="space-y-2">
                 {activities.map((activity) => {
-                  const isExpanded = expandedActivity === activity._id;
                   return (
-                    <Card key={activity._id} className="hover:shadow-sm transition-shadow">
+                    <Card
+                      key={activity._id}
+                      className="hover:shadow-sm transition-shadow cursor-pointer"
+                      onClick={() => router.push(`/admin/activities/${activity._id}`)}
+                    >
                       <CardContent className="p-3">
                         <div className="flex gap-3">
                           {/* Thumbnail */}
@@ -171,52 +173,17 @@ export default function AdminActivitiesPage() {
                               </span>
                             </div>
 
-                            <p className={`text-xs text-muted-foreground mb-2 ${!isExpanded ? 'line-clamp-1' : ''}`}>
+                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                               {activity.description}
                             </p>
-
-                            {/* Expandable Details */}
-                            {isExpanded && (
-                              <div className="mb-2 space-y-2 pt-2 border-t">
-                                {/* All Photos */}
-                                {activity.photos.length > 1 && (
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {activity.photos.slice(1).map((photo, index) => (
-                                      <img
-                                        key={index}
-                                        src={photo}
-                                        alt={`${activity.title} ${index + 2}`}
-                                        className="w-full h-16 object-cover rounded-md"
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
 
                             {/* Actions */}
                             <div className="flex items-center justify-end gap-2">
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setExpandedActivity(isExpanded ? null : activity._id)}
-                                className="h-7 text-xs"
-                              >
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronUp className="mr-1 h-3 w-3" />
-                                    Show Less
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="mr-1 h-3 w-3" />
-                                    Show More
-                                  </>
-                                )}
-                              </Button>
-
-                              <Button
-                                onClick={() => approveMutation.mutate(activity._id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  approveMutation.mutate(activity._id);
+                                }}
                                 disabled={approveMutation.isPending}
                                 size="sm"
                                 className="h-7 text-xs"
@@ -234,7 +201,10 @@ export default function AdminActivitiesPage() {
                                 )}
                               </Button>
                               <Button
-                                onClick={() => handleReject(activity)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReject(activity);
+                                }}
                                 variant="destructive"
                                 disabled={rejectMutation.isPending}
                                 size="sm"
@@ -269,9 +239,12 @@ export default function AdminActivitiesPage() {
             ) : (
               <div className="space-y-2">
                 {activities.map((activity) => {
-                  const isExpanded = expandedActivity === activity._id;
                   return (
-                    <Card key={activity._id} className="hover:shadow-sm transition-shadow">
+                    <Card
+                      key={activity._id}
+                      className="hover:shadow-sm transition-shadow cursor-pointer"
+                      onClick={() => router.push(`/admin/activities/${activity._id}`)}
+                    >
                       <CardContent className="p-3">
                         <div className="flex gap-3">
                           {/* Thumbnail */}
@@ -313,49 +286,12 @@ export default function AdminActivitiesPage() {
                               </span>
                             </div>
 
-                            <p className={`text-xs text-muted-foreground mb-2 ${!isExpanded ? 'line-clamp-1' : ''}`}>
+                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                               {activity.description}
                             </p>
 
-                            {/* Expandable Details */}
-                            {isExpanded && (
-                              <div className="mb-2 space-y-2 pt-2 border-t">
-                                {/* All Photos */}
-                                {activity.photos.length > 1 && (
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {activity.photos.slice(1).map((photo, index) => (
-                                      <img
-                                        key={index}
-                                        src={photo}
-                                        alt={`${activity.title} ${index + 2}`}
-                                        className="w-full h-16 object-cover rounded-md"
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
                             {/* Actions */}
                             <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setExpandedActivity(isExpanded ? null : activity._id)}
-                                className="h-7 text-xs"
-                              >
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronUp className="mr-1 h-3 w-3" />
-                                    Show Less
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="mr-1 h-3 w-3" />
-                                    Show More
-                                  </>
-                                )}
-                              </Button>
                             </div>
                           </div>
                         </div>

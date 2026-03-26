@@ -15,6 +15,8 @@ export interface IUser extends Document {
   referredBy?: mongoose.Types.ObjectId; // User who referred this user
   referralCode?: string; // Referral code used during signup
   discountAmount?: number; // Discount received from referral
+  merchantTermsAcceptedAt?: Date;
+  merchantTermsVersion?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +78,13 @@ const userSchema = new Schema<IUser>(
     discountAmount: {
       type: Number,
       min: [0, 'Discount amount cannot be negative'],
+    },
+    merchantTermsAcceptedAt: {
+      type: Date,
+    },
+    merchantTermsVersion: {
+      type: String,
+      trim: true,
     },
   },
   {

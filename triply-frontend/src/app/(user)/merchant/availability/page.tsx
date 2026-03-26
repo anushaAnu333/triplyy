@@ -7,6 +7,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { merchantActivitiesApi } from '@/lib/api/activities';
+import { MERCHANT_PAGE_WIDTH_CLASS } from '@/lib/utils';
 import AvailabilityCalendar, { AvailabilityData } from '@/components/availability/AvailabilityCalendar';
 
 export default function MerchantAvailabilityPage() {
@@ -76,8 +77,8 @@ export default function MerchantAvailabilityPage() {
   }));
 
   return (
-    <div className="min-h-screen bg-muted/30 pt-24 pb-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-muted/30 py-6 pb-8">
+      <div className={MERCHANT_PAGE_WIDTH_CLASS}>
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Activity Availability</h1>
           <p className="text-muted-foreground">

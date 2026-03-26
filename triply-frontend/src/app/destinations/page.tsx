@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, SlidersHorizontal, MapPin, Calendar, X } from 'lucide-react';
+import { MapPin, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -12,6 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
+  SearchFiltersModal,
+  SearchFiltersStickyBar,
+  countActiveFilters,
+} from '@/components/filters';
 import { destinationsApi, Destination } from '@/lib/api/destinations';
 import { DestinationCard } from '@/components/destinations/DestinationCard';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -21,16 +26,16 @@ export default function DestinationsPage() {
   const [search, setSearch] = useState('');
   const [region, setRegion] = useState('all');
   const [duration, setDuration] = useState('all');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const router = useRouter();
 
   const { data: destinationsResponse, isLoading } = useQuery({
     queryKey: ['destinations', search],
-    queryFn: () => destinationsApi.getAll({ search }),
+    queryFn: () => destinationsApi.getAll({ search: search.trim() || undefined }),
   });
 
   const destinations = destinationsResponse?.data || [];
 
-  // Derive region options from available destinations (unique countries)
   const regions = useMemo(() => {
     const options = [{ value: 'all', label: 'All Regions' }];
     const countries = Array.from(new Set(destinations.map((d) => d.country).filter(Boolean))).sort();
@@ -38,7 +43,6 @@ export default function DestinationsPage() {
     return options;
   }, [destinations]);
 
-  // Derive duration options from available destinations (unique "X Days / Y Nights")
   const durations = useMemo(() => {
     const options = [{ value: 'all', label: 'Any Duration' }];
     const set = new Set<string>();
@@ -68,97 +72,117 @@ export default function DestinationsPage() {
     });
   }, [destinations, region, duration]);
 
+  const activeFilterCount = countActiveFilters([
+    Boolean(search.trim()),
+    region !== 'all',
+    duration !== 'all',
+  ]);
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setRegion('all');
+    setDuration('all');
+  };
+
   return (
     <div className="min-h-screen">
-    
-      {/* Search & Filters */}
-      <section className="bg-white sticky top-20 z-40 border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search destinations, countries..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-12 h-12 text-lg rounded-full border-slate-200"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
-            {/* Filter Toggles */}
-            <div className="flex gap-3">
-              <Select value={region} onValueChange={setRegion}>
-                <SelectTrigger className="w-40 h-12 rounded-full">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger className="w-40 h-12 rounded-full">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {durations.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-            </div>
-          </div>
+      <SearchFiltersModal
+        open={filterModalOpen}
+        onOpenChange={setFilterModalOpen}
+        title="Search & filters"
+        description="Search by destination or country, then narrow by region and trip length."
+        fields={[
+          {
+            id: 'dest-search',
+            label: 'Search',
+            value: search,
+            onChange: setSearch,
+            placeholder: 'Destinations, countries…',
+          },
+        ]}
+        onClearAll={clearAllFilters}
+      >
+        <div className="space-y-2">
+          <Label>Region</Label>
+          <Select value={region} onValueChange={setRegion}>
+            <SelectTrigger className="h-11 w-full">
+              <MapPin className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+              <SelectValue placeholder="Region" />
+            </SelectTrigger>
+            <SelectContent>
+              {regions.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </section>
 
-      {/* Results */}
-      <section className="py-12 bg-slate-50">
+        <div className="space-y-2">
+          <Label>Duration</Label>
+          <Select value={duration} onValueChange={setDuration}>
+            <SelectTrigger className="h-11 w-full">
+              <Calendar className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+              <SelectValue placeholder="Duration" />
+            </SelectTrigger>
+            <SelectContent>
+              {durations.map((d) => (
+                <SelectItem key={d.value} value={d.value}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </SearchFiltersModal>
+
+      <SearchFiltersStickyBar
+        title="Destinations"
+        onOpenFilters={() => setFilterModalOpen(true)}
+        activeCount={activeFilterCount}
+      />
+
+      <section className="bg-slate-50 py-10 md:py-12">
         <div className="container mx-auto px-4">
-          {/* Results Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="font-display text-2xl font-bold">
-                {isLoading ? 'Loading...' : `${filteredDestinations.length} Destinations`}
-              </h2>
-             
-            </div>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-2">
+            <h2 className="font-display text-2xl font-bold">
+              {isLoading ? 'Loading…' : `${filteredDestinations.length} destinations`}
+            </h2>
+            {!isLoading && activeFilterCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Filters active —{' '}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  onClick={() => setFilterModalOpen(true)}
+                >
+                  Edit in search & filters
+                </button>
+              </p>
+            ) : null}
           </div>
 
-          {/* Loading State */}
           {isLoading ? (
             <div className="flex justify-center py-20">
               <LoadingSpinner size="lg" />
             </div>
           ) : filteredDestinations.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
-                <MapPin className="w-12 h-12 text-slate-400" />
+            <div className="py-20 text-center">
+              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-100">
+                <MapPin className="h-12 w-12 text-slate-400" />
               </div>
-              <h3 className="text-2xl font-semibold mb-2">No destinations found</h3>
-              <p className="text-muted-foreground mb-6">
-                Try adjusting your search or filters
-              </p>
-              <Button onClick={() => { setSearch(''); setRegion('all'); setDuration('all'); }}>
-                Clear Filters
-              </Button>
+              <h3 className="mb-2 text-2xl font-semibold">No destinations found</h3>
+              <p className="mb-6 text-muted-foreground">Try adjusting your search or filters</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="outline" onClick={clearAllFilters}>
+                  Clear filters
+                </Button>
+                <Button onClick={() => setFilterModalOpen(true)}>Open search & filters</Button>
+              </div>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {filteredDestinations.map((destination: Destination) => (
                 <DestinationCard
                   key={destination._id}
@@ -172,19 +196,16 @@ export default function DestinationsPage() {
         </div>
       </section>
 
-      {/* CTA Banner */}
-      <section className="py-11 bg-brand-orange">
+      <section className="bg-brand-orange py-11">
         <div className="container mx-auto px-4 text-center text-white">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Can't find what you're looking for?
-          </h2>
-          <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-            Contact us and we'll help you plan your perfect trip
+          <h2 className="mb-4 text-3xl font-bold md:text-4xl">Can&apos;t find what you&apos;re looking for?</h2>
+          <p className="mx-auto mb-8 max-w-2xl text-xl text-white/80">
+            Contact us and we&apos;ll help you plan your perfect trip
           </p>
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             onClick={() => router.push('/contact')}
-            className="bg-white text-brand-orange hover:bg-white/90 rounded-full px-8 font-bold"
+            className="rounded-full bg-white px-8 font-bold text-brand-orange hover:bg-white/90"
           >
             Contact Us
           </Button>

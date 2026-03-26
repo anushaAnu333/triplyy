@@ -34,16 +34,9 @@ export const paymentsApi = {
     return response.data.data;
   },
 
-  /** Create Stripe Checkout Session for deposit – returns URL to redirect user to Stripe. Optional testAmount (e.g. 2) for testing with minimum charge. */
-  createCheckoutSession: async (
-    bookingId: string,
-    options?: { testAmount?: number }
-  ): Promise<CreateCheckoutSessionResponse> => {
-    const body: { bookingId: string; testAmount?: number } = { bookingId };
-    if (typeof options?.testAmount === 'number' && options.testAmount > 0) {
-      body.testAmount = options.testAmount;
-    }
-    const response = await api.post('/payments/create-checkout-session', body);
+  /** Create Stripe Checkout Session for booking deposit. */
+  createCheckoutSession: async (bookingId: string): Promise<CreateCheckoutSessionResponse> => {
+    const response = await api.post('/payments/create-checkout-session', { bookingId });
     return response.data.data;
   },
 

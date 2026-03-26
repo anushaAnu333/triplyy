@@ -22,6 +22,24 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   return new Intl.DateTimeFormat('en-US', options || defaultOptions).format(new Date(date));
 }
 
+/** Human-readable label for activity bookings (single day or multi-day in one reservation). */
+export function formatActivityBookingDates(booking: {
+  selectedDate: string;
+  selectedDates?: string[];
+  lastActivityDate?: string;
+}): string {
+  const dates =
+    booking.selectedDates && booking.selectedDates.length > 0
+      ? [...booking.selectedDates].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+      : [booking.selectedDate];
+  if (dates.length <= 1) {
+    return formatDate(dates[0]);
+  }
+  const first = formatDate(dates[0], { month: 'short', day: 'numeric' });
+  const last = formatDate(dates[dates.length - 1], { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${first} – ${last}`;
+}
+
 export function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
@@ -51,4 +69,8 @@ export function getBookingStatusLabel(status: string): string {
   };
   return labels[status] || status;
 }
+
+/** Merchant hub pages: wide column; horizontal padding only (parent layout supplies top offset for fixed header). */
+export const MERCHANT_PAGE_WIDTH_CLASS =
+  'mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8';
 

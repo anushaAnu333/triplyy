@@ -23,6 +23,8 @@ export interface User {
   isEmailVerified: boolean;
   phoneNumber?: string;
   profileImage?: string;
+  merchantTermsAcceptedAt?: string;
+  merchantTermsVersion?: string;
 }
 
 export interface AuthResponse {

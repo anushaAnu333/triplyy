@@ -9,6 +9,7 @@ import {
   Loader2,
   Briefcase,
   Eye,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,6 +49,12 @@ function getStatusBadge(status: OnboardingStatus) {
   switch (status) {
     case 'pending':
       return <Badge variant="outline" className="text-amber-600 border-amber-600">Pending</Badge>;
+    case 'reapplied':
+      return (
+        <Badge variant="outline" className="text-violet-700 border-violet-600">
+          Reapplied
+        </Badge>
+      );
     case 'approved':
       return <Badge className="bg-green-600">Approved</Badge>;
     case 'rejected':
@@ -57,12 +64,16 @@ function getStatusBadge(status: OnboardingStatus) {
   }
 }
 
+function needsReview(status: OnboardingStatus): boolean {
+  return status === 'pending' || status === 'reapplied';
+}
+
 export default function AdminOnboardingPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<OnboardingStatus | 'all'>('pending');
+  const [activeTab, setActiveTab] = useState<OnboardingStatus | 'all'>('all');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [selected, setSelected] = useState<MerchantOnboardingApplication | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -78,8 +89,11 @@ export default function AdminOnboardingPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => adminOnboardingApi.approve(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+      await queryClient.refetchQueries({ queryKey: ['admin-onboarding'] });
+      setActiveTab('approved');
+      setPage(1);
       toast({ title: 'Application approved' });
     },
     onError: (err: unknown) => {
@@ -91,16 +105,35 @@ export default function AdminOnboardingPage() {
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       adminOnboardingApi.reject(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+    onSuccess: async () => {
       setRejectOpen(false);
       setRejectionReason('');
       setSelected(null);
-      toast({ title: 'Application rejected' });
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+      await queryClient.refetchQueries({ queryKey: ['admin-onboarding'] });
+      setActiveTab('rejected');
+      setPage(1);
+      toast({
+        title: 'Application rejected',
+        description: 'The applicant has been notified by email and can submit a new application if they choose.',
+      });
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast({ title: 'Failed to reject', description: msg, variant: 'destructive' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminOnboardingApi.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-onboarding'] });
+      await queryClient.refetchQueries({ queryKey: ['admin-onboarding'] });
+      toast({ title: 'Application deleted' });
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast({ title: 'Failed to delete', description: msg, variant: 'destructive' });
     },
   });
 
@@ -141,13 +174,13 @@ export default function AdminOnboardingPage() {
           }}
         >
           <TabsList className="mb-6">
+            <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="approved">Approved</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
 
-          {(['pending', 'approved', 'rejected', 'all'] as const).map((tab) => (
+          {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
           <TabsContent key={tab} value={tab}>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -159,7 +192,7 @@ export default function AdminOnboardingPage() {
                   <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
                     {tab === 'pending'
-                      ? 'No pending applications'
+                      ? 'No applications awaiting review'
                       : tab === 'approved'
                         ? 'No approved applications'
                         : tab === 'rejected'
@@ -216,7 +249,21 @@ export default function AdminOnboardingPage() {
                                 View
                               </Link>
                             </Button>
-                            {app.status === 'pending' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const ok = window.confirm('Delete this onboarding application permanently?');
+                                if (!ok) return;
+                                deleteMutation.mutate(app._id);
+                              }}
+                              disabled={deleteMutation.isPending}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                            {needsReview(app.status) && (
                               <>
                                 <Button
                                   size="sm"
@@ -285,7 +332,8 @@ export default function AdminOnboardingPage() {
             <DialogHeader>
               <DialogTitle>Reject application</DialogTitle>
               <DialogDescription>
-                Optionally add a reason. The user&apos;s merchant role will be reverted to user.
+                Optionally add a reason (included in the email to the applicant). Their account stays a traveller
+                account; they can submit a new merchant application after updating details.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

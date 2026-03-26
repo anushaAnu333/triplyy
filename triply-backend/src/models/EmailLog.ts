@@ -10,7 +10,9 @@ export type EmailType =
   | 'calendar_expiring'
   | 'password_reset'
   | 'email_verification'
-  | 'activity_inquiry';
+  | 'activity_inquiry'
+  | 'merchant_onboarding_rejected'
+  | 'activity_approved_payment_prompt';
 
 export type EmailStatus = 'sent' | 'failed' | 'pending';
 
@@ -45,6 +47,8 @@ const emailLogSchema = new Schema<IEmailLog>(
         'password_reset',
         'email_verification',
         'activity_inquiry',
+        'merchant_onboarding_rejected',
+        'activity_approved_payment_prompt',
       ],
       required: [true, 'Email type is required'],
     },

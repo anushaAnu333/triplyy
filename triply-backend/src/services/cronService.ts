@@ -1,7 +1,8 @@
 import * as cron from 'node-cron';
-import { Booking } from '../models';
+import { ActivityBooking, Booking } from '../models';
 import { sendCalendarExpiryReminder } from './emailService';
 import logger from '../utils/logger';
+import env from '../config/environment';
 
 /**
  * Check for bookings with calendar expiring in 30 days and send reminders
@@ -58,6 +59,49 @@ const checkCalendarExpiry = async (): Promise<void> => {
 };
 
 /**
+ * Release activity booking payouts to merchants after the payout delay window.
+ *
+ * Business rule (MVP):
+ * - Customer pays to Triply.
+ * - Triply keeps commission (20%) immediately (stored as `payment.triplyCommission`).
+ * - Merchant receives 80% payout after:
+ *    - booking is approved/confirmed, and
+ *    - selectedDate + ACTIVITY_PAYOUT_DELAY_DAYS is reached.
+ */
+const releaseDueActivityPayouts = async (): Promise<void> => {
+  try {
+    const delayDays = env.ACTIVITY_PAYOUT_DELAY_DAYS;
+    const now = new Date();
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - delayDays);
+
+    const dueBookings = await ActivityBooking.find({
+      status: 'confirmed',
+      'payment.paymentStatus': 'completed',
+      'payment.merchantPayoutStatus': 'pending',
+      $expr: {
+        $lte: [{ $ifNull: ['$lastActivityDate', '$selectedDate'] }, cutoff],
+      },
+    });
+
+    if (!dueBookings.length) return;
+
+    for (const booking of dueBookings) {
+      booking.payment.merchantPayoutStatus = 'paid';
+      booking.payment.merchantPayoutDate = now;
+      await booking.save();
+
+      logger.info(
+        `[PAYOUT] Activity booking payout released: bookingId=${booking._id}, reference=${booking.bookingReference}, amount=${booking.payment.merchantAmount}`
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Error in releaseDueActivityPayouts: ${message}`);
+  }
+};
+
+/**
  * Initialize cron jobs
  */
 export const initializeCronJobs = (): void => {
@@ -65,6 +109,12 @@ export const initializeCronJobs = (): void => {
   cron.schedule('0 9 * * *', () => {
     logger.info('Running daily calendar expiry check...');
     checkCalendarExpiry();
+  });
+
+  // Run daily at 9:15 AM UTC for payouts
+  cron.schedule('15 9 * * *', () => {
+    logger.info('Running daily activity payout release...');
+    releaseDueActivityPayouts();
   });
 
   logger.info('Cron jobs initialized');

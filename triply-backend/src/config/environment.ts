@@ -32,6 +32,7 @@ interface Environment {
   DEFAULT_DEPOSIT_AMOUNT: number;
   DEFAULT_CURRENCY: string;
   CALENDAR_UNLOCK_DURATION_DAYS: number;
+  ACTIVITY_PAYOUT_DELAY_DAYS: number;
 }
 
 const env: Environment = {
@@ -62,6 +63,7 @@ const env: Environment = {
   DEFAULT_DEPOSIT_AMOUNT: parseInt(process.env.DEFAULT_DEPOSIT_AMOUNT || '199', 10),
   DEFAULT_CURRENCY: process.env.DEFAULT_CURRENCY || 'AED',
   CALENDAR_UNLOCK_DURATION_DAYS: parseInt(process.env.CALENDAR_UNLOCK_DURATION_DAYS || '365', 10),
+  ACTIVITY_PAYOUT_DELAY_DAYS: parseInt(process.env.ACTIVITY_PAYOUT_DELAY_DAYS || '14', 10),
 };
 
 export default env;

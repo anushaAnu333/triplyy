@@ -265,6 +265,18 @@ export const createActivityBookingCheckoutSession = async (
       throw new AppError('Payment has already been processed for this booking', 400);
     }
 
+    const activity = booking.activityId as unknown as { status?: string };
+    if (activity?.status !== 'approved') {
+      throw new AppError('Activity is not approved yet. Please wait for approval email.', 400);
+    }
+
+    if (!booking.merchantAvailabilityApproved) {
+      throw new AppError(
+        'The merchant has not confirmed availability for your date yet. You will be able to pay after they approve.',
+        400
+      );
+    }
+
     const { url } = await createStripeCheckoutSessionForActivity({
       bookingId: booking._id.toString(),
       amount: booking.payment.amount,

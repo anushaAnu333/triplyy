@@ -2,16 +2,17 @@ import { Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
 import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
+import { User } from '../models';
 
 /**
  * Authentication middleware
  * Verifies JWT access token and attaches user to request
  */
-export const authenticate = (
+export const authenticate = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -26,19 +27,29 @@ export const authenticate = (
     }
 
     const decoded = verifyAccessToken(token);
+
+    // Use latest role from DB so approval/rejection takes effect immediately
+    // without requiring the user to log out/login.
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      throw new AppError('User not found', 401);
+    }
+
     req.user = {
       userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role as 'user' | 'admin' | 'affiliate' | 'merchant',
+      email: decoded.email || user.email,
+      role: user.role as 'user' | 'admin' | 'affiliate' | 'merchant',
     };
 
     next();
   } catch (error) {
     if (error instanceof AppError) {
       next(error);
-    } else {
-      next(new AppError('Invalid or expired token. Please log in again.', 401));
+      return;
     }
+
+    next(new AppError('Invalid or expired token. Please log in again.', 401));
+    return;
   }
 };
 

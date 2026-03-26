@@ -11,6 +11,13 @@ export interface IActivity extends Document {
   price: number;
   currency: string;
   photos: string[]; // Array of image URLs (1-3 photos)
+  duration?: string;
+  groupSize?: number;
+  languages?: string;
+  pointsHeading?: string;
+  pointGroups?: Array<{ text: string; subPoints: string[] }>;
+  includes?: string[];
+  excludes?: string[];
   status: ActivityStatus;
   rejectionReason?: string;
   createdAt: Date;
@@ -61,6 +68,45 @@ const activitySchema = new Schema<IActivity>(
         message: 'Activity must have between 1 and 3 photos',
       },
     },
+    duration: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Duration cannot exceed 100 characters'],
+    },
+    groupSize: {
+      type: Number,
+      min: [0, 'Group size cannot be negative'],
+    },
+    languages: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Languages cannot exceed 200 characters'],
+    },
+    pointsHeading: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Points heading cannot exceed 200 characters'],
+    },
+    pointGroups: [
+      {
+        text: { type: String, trim: true, maxlength: 500 },
+        subPoints: [{ type: String, trim: true, maxlength: 500 }],
+      },
+    ],
+    includes: [
+      {
+        type: String,
+        trim: true,
+        maxlength: 200,
+      },
+    ],
+    excludes: [
+      {
+        type: String,
+        trim: true,
+        maxlength: 200,
+      },
+    ],
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],

@@ -54,6 +54,16 @@ export default function RegisterPage() {
 
   const referralCode = watch('referralCode');
 
+  // Persist post-login redirect (e.g. from /register?redirect=/become-merchant?openTerms=1)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    if (redirect) {
+      localStorage.setItem('redirectAfterLogin', redirect);
+    }
+  }, []);
+
   // Check for referral code in URL
   React.useEffect(() => {
     if (typeof window !== 'undefined') {

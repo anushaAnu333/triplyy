@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, CheckCircle2, Loader2, Plus, X, Trash2, ChevronDown, ChevronRight, Briefcase, UserCircle, FileUp, Package } from 'lucide-react';
+import { Upload, CheckCircle2, Loader2, Briefcase, UserCircle, FileUp, Package, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +22,6 @@ import {
   SERVICE_CATEGORIES,
   EMIRATES,
   CURRENCIES,
-  ONBOARDING_STORAGE_KEY,
   MIN_SERVICE_IMAGES,
 } from '@/lib/merchant-onboarding/constants';
 import {
@@ -35,6 +34,8 @@ import {
 } from '@/lib/merchant-onboarding/validation';
 import type { BusinessType, BusinessInfo, ServiceItem, ServicePointGroup } from '@/lib/merchant-onboarding/types';
 import { submitMerchantOnboarding } from '@/lib/api/merchantOnboarding';
+import { hasMerchantTcAccepted } from '@/lib/merchant-onboarding/merchantTc';
+import { MerchantOnboardingServicesStep } from '@/components/merchant/MerchantOnboardingServicesStep';
 import { cn } from '@/lib/utils';
 
 const STEPS = [
@@ -60,7 +61,7 @@ const defaultBusinessInfo: Partial<BusinessInfo> = {
   website: '',
   bankName: '',
   accountHolderName: '',
-  iban: '',
+  accountNumber: '',
   vatTrn: '',
   currency: 'AED',
 };
@@ -84,7 +85,7 @@ function createEmptyService(): ServiceItem {
 
 export default function MerchantOnboardingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [step, setStep] = useState(1);
@@ -96,74 +97,10 @@ export default function MerchantOnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const serviceImageUploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [serviceOpenSections, setServiceOpenSections] = useState<Record<string, { basic: boolean; points: boolean; includedExcluded: boolean; images: boolean }>>({});
+  const [merchantTcReady, setMerchantTcReady] = useState(false);
+  const [showStep2Errors, setShowStep2Errors] = useState(false);
 
   const progressPercent = (step / 5) * 100;
-
-  const persistState = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const payload = {
-        step,
-        businessType,
-        categories,
-        businessInfo,
-        documents: Object.fromEntries(
-          Object.entries(documents).map(([k, v]) => [k, { uploaded: v.uploaded, fileName: v.file?.name }])
-        ),
-        services: services.map((s) => ({ ...s, images: [] as File[] })),
-      };
-      localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      // ignore
-    }
-  }, [step, businessType, categories, businessInfo, documents, services]);
-
-  useEffect(() => {
-    persistState();
-  }, [persistState]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed.step) setStep(parsed.step);
-      if (parsed.businessType) setBusinessType(parsed.businessType);
-      if (Array.isArray(parsed.categories)) setCategories(parsed.categories);
-      if (parsed.businessInfo && typeof parsed.businessInfo === 'object')
-        setBusinessInfo((p) => ({ ...p, ...parsed.businessInfo }));
-      if (parsed.documents && typeof parsed.documents === 'object') {
-        setDocuments((prev) => {
-          const next = { ...prev };
-          Object.entries(parsed.documents).forEach(([k, v]: [string, unknown]) => {
-            const o = v as { uploaded?: boolean };
-            if (o?.uploaded) next[k] = { file: null, uploaded: true };
-          });
-          return next;
-        });
-      }
-      if (Array.isArray(parsed.services) && parsed.services.length > 0) {
-        setServices(
-          parsed.services.map((s: Partial<ServiceItem> & { id?: string }) => ({
-            ...createEmptyService(),
-            id: s.id ?? createEmptyService().id,
-            title: s.title ?? '',
-            price: s.price ?? '',
-            duration: s.duration ?? '',
-            groupSize: s.groupSize ?? '',
-            languages: s.languages ?? '',
-            description: s.description ?? '',
-            includes: s.includes ?? '',
-            excludes: s.excludes ?? '',
-            images: [],
-          }))
-        );
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
 
   useEffect(() => {
     if (!businessType) return;
@@ -177,39 +114,45 @@ export default function MerchantOnboardingPage() {
     });
   }, [businessType]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    router.push('/login?redirect=/become-merchant/onboarding');
-    return null;
-  }
-
-  if (user?.role === 'merchant') {
-    router.push('/merchant/dashboard');
-    return null;
-  }
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (user?.role === 'merchant') return;
+    if (user?.merchantTermsAcceptedAt || hasMerchantTcAccepted()) {
+      setMerchantTcReady(true);
+    } else {
+      router.replace('/become-merchant/terms');
+    }
+  }, [authLoading, isAuthenticated, user?.role, user?.merchantTermsAcceptedAt, router]);
 
   const toggleCategory = (cat: string) => {
     setCategories((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]));
   };
 
   const canProceedStep1 = businessType !== null && categories.length > 0;
-  const step2Result = businessInfoSchema.safeParse(businessInfo);
+  const step2Result = useMemo(() => businessInfoSchema.safeParse(businessInfo), [businessInfo]);
   const canProceedStep2 = () => step2Result.success;
   const step2Errors = !step2Result.success && step2Result.error?.errors
     ? step2Result.error.errors.map((e) => `${e.path[0]}: ${e.message}`).slice(0, 3)
     : [];
-  const canProceedStep3 = businessType ? areRequiredDocumentsUploaded(businessType, documents) : false;
-  const canProceedStep4 = () => {
+  const canProceedStep3 = useMemo(
+    () => (businessType ? areRequiredDocumentsUploaded(businessType, documents) : false),
+    [businessType, documents]
+  );
+  const canProceedStep4 = useMemo(() => {
     if (services.length === 0) return false;
     return services.every((s) => validateServiceItem(s).success && s.images.length >= MIN_SERVICE_IMAGES);
-  };
+  }, [services]);
+  const docsForBusinessType = useMemo(
+    () => (businessType ? getDocumentsForBusinessType(businessType) : []),
+    [businessType]
+  );
+
+  useEffect(() => {
+    if (step === 2 && step2Result.success && showStep2Errors) {
+      setShowStep2Errors(false);
+    }
+  }, [step, step2Result.success, showStep2Errors]);
 
   const handleDocUpload = (docId: string, file: File | null) => {
     setDocuments((prev) => ({ ...prev, [docId]: { file, uploaded: !!file } }));
@@ -304,16 +247,23 @@ export default function MerchantOnboardingPage() {
   };
 
   const goNext = () => {
-    if (step === 1 && !canProceedStep1) return;
-    if (step === 2 && !canProceedStep2()) {
-      toast({ title: 'Please fill all required fields', variant: 'destructive' });
+    if (step === 1 && !canProceedStep1) {
+      toast({ title: 'Select merchant type and at least one category', variant: 'destructive' });
       return;
+    }
+    if (step === 2 && !canProceedStep2()) {
+      setShowStep2Errors(true);
+      toast({ title: 'Please complete all required business details', variant: 'destructive' });
+      return;
+    }
+    if (step === 2) {
+      setShowStep2Errors(false);
     }
     if (step === 3 && !canProceedStep3) {
       toast({ title: 'Please upload all required documents', variant: 'destructive' });
       return;
     }
-    if (step === 4 && !canProceedStep4()) {
+    if (step === 4 && !canProceedStep4) {
       toast({
         title: 'Add at least one service with required fields and minimum images',
         variant: 'destructive',
@@ -369,13 +319,8 @@ export default function MerchantOnboardingPage() {
         documents: docsRecord,
         services: servicesPayload,
       });
-      if (typeof window !== 'undefined') localStorage.removeItem(ONBOARDING_STORAGE_KEY);
       setStep(5);
       toast({ title: 'Application submitted', description: 'Our team will review your application.' });
-      setTimeout(async () => {
-        await logout();
-        router.push('/login?registered=merchant&redirect=/merchant/dashboard');
-      }, 2500);
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Submission failed';
@@ -385,9 +330,42 @@ export default function MerchantOnboardingPage() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    router.push('/login?redirect=/become-merchant/terms');
+    return null;
+  }
+
+  if (user?.role === 'merchant') {
+    router.push('/merchant/dashboard');
+    return null;
+  }
+
+  if (!merchantTcReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-muted/30 py-10 px-4 pt-24 pb-14">
       <div className="max-w-3xl mx-auto">
+        <div className="mb-4">
+          <Link href="/become-merchant" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        </div>
+
         {/* Heading outside card */}
         <div className="text-center mb-8">
           <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
@@ -623,12 +601,12 @@ export default function MerchantOnboardingPage() {
                   />
                 </div>
                 <div className="sm:col-span-2 space-y-1.5 sm:space-y-2">
-                  <Label htmlFor="iban" className="text-sm text-foreground">IBAN *</Label>
+                  <Label htmlFor="accountNumber" className="text-sm text-foreground">Account number *</Label>
                   <Input
-                    id="iban"
-                    value={businessInfo.iban ?? ''}
-                    onChange={(e) => setBusinessInfo((p) => ({ ...p, iban: e.target.value }))}
-                    placeholder="AE XX XXXX XXXX XXXX XXXX XXX"
+                    id="accountNumber"
+                    value={businessInfo.accountNumber ?? ''}
+                    onChange={(e) => setBusinessInfo((p) => ({ ...p, accountNumber: e.target.value }))}
+                    placeholder="e.g. 1234567890123456"
                   />
                 </div>
                 <div className="space-y-1.5 sm:space-y-2">
@@ -666,7 +644,7 @@ export default function MerchantOnboardingPage() {
               <p className="text-sm font-medium text-foreground border-b border-border pb-2">Required Documents</p>
               <p className="text-xs text-muted-foreground">Upload PDF, JPG or PNG. Max 10MB per file.</p>
               <div className="space-y-3">
-                {getDocumentsForBusinessType(businessType).map((doc) => (
+                {docsForBusinessType.map((doc) => (
                   <div
                     key={doc.id}
                     className={cn(
@@ -705,335 +683,26 @@ export default function MerchantOnboardingPage() {
 
           {/* Step 4: Services */}
           {step === 4 && (
-            <>
-              <p className="text-sm font-medium text-foreground border-b border-border pb-2">Services</p>
-              <p className="text-xs text-muted-foreground">Add at least one service. Min {MIN_SERVICE_IMAGES} image(s) per service.</p>
-              {services.map((svc) => (
-                <div key={svc.id} className="rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="flex items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {svc.title?.trim() ? svc.title : 'New service'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Add details, points & inclusions, then upload images.
-                      </p>
-                    </div>
-                    {services.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 w-9 p-0 text-red-600"
-                        onClick={() => removeService(svc.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Basic */}
-                  <div className="border-t border-border">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between p-4 text-left font-medium"
-                      onClick={() => toggleServiceSection(svc.id, 'basic')}
-                    >
-                      Basic info
-                      {getServiceSections(svc.id).basic ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                    {getServiceSections(svc.id).basic && (
-                      <div className="space-y-4 border-t border-border px-4 pb-4 pt-2">
-                        <div className="space-y-1.5 sm:space-y-2">
-                          <Label className="text-sm text-foreground">Title *</Label>
-                          <Input
-                            value={svc.title}
-                            onChange={(e) => updateService(svc.id, { title: e.target.value })}
-                            placeholder="e.g. Premium Dubai Desert Safari"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5 sm:space-y-2">
-                            <Label className="text-sm text-foreground">Price (AED) *</Label>
-                            <Input
-                              type="number"
-                              value={svc.price}
-                              onChange={(e) => updateService(svc.id, { price: e.target.value })}
-                              placeholder="250"
-                            />
-                          </div>
-                          <div className="space-y-1.5 sm:space-y-2">
-                            <Label className="text-sm">Duration</Label>
-                            <Input
-                              value={svc.duration}
-                              onChange={(e) => updateService(svc.id, { duration: e.target.value })}
-                              placeholder="e.g. 6 hours"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5 sm:space-y-2">
-                            <Label className="text-sm">Max group size</Label>
-                            <Input
-                              type="number"
-                              value={svc.groupSize}
-                              onChange={(e) => updateService(svc.id, { groupSize: e.target.value })}
-                              placeholder="20"
-                            />
-                          </div>
-                          <div className="space-y-1.5 sm:space-y-2">
-                            <Label className="text-sm">Languages</Label>
-                            <Input
-                              value={svc.languages}
-                              onChange={(e) => updateService(svc.id, { languages: e.target.value })}
-                              placeholder="English, Arabic"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5 sm:space-y-2">
-                          <Label className="text-sm text-foreground">Description *</Label>
-                          <Textarea
-                            value={svc.description}
-                            onChange={(e) => updateService(svc.id, { description: e.target.value })}
-                            placeholder="Describe your service..."
-                            rows={4}
-                            className="resize-y"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Points / Subpoints */}
-                  <div className="border-t border-border">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between p-4 text-left font-medium"
-                      onClick={() => toggleServiceSection(svc.id, 'points')}
-                    >
-                      Points & sub-points
-                      {getServiceSections(svc.id).points ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                    {getServiceSections(svc.id).points && (
-                      <div className="space-y-4 border-t border-border px-4 pb-4 pt-2">
-                        <div className="space-y-1.5 sm:space-y-2">
-                          <Label className="text-sm">Heading (optional)</Label>
-                          <Input
-                            value={svc.pointsHeading ?? ''}
-                            onChange={(e) => updateService(svc.id, { pointsHeading: e.target.value })}
-                            placeholder="e.g. Highlights"
-                          />
-                        </div>
-                        <div className="flex justify-end">
-                          <Button type="button" variant="outline" size="sm" onClick={() => addServicePoint(svc.id)}>
-                            <Plus className="mr-1 h-4 w-4" /> Add point
-                          </Button>
-                        </div>
-                        {(svc.pointGroups?.length ? svc.pointGroups : [{ text: '', subPoints: [] }]).map((g, gIdx) => (
-                          <Card key={gIdx} className="space-y-3 p-4">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-sm">Point {gIdx + 1}</Label>
-                              <div className="flex gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => addServiceSubPoint(svc.id, gIdx)}
-                                >
-                                  <Plus className="mr-1 h-3 w-3" /> Sub-point
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-600"
-                                  onClick={() => removeServicePoint(svc.id, gIdx)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <Input
-                              value={g.text}
-                              onChange={(e) => setServicePointText(svc.id, gIdx, e.target.value)}
-                              placeholder="Main point text"
-                            />
-                            {(g.subPoints || []).map((sp, sIdx) => (
-                              <div key={sIdx} className="flex gap-2 pl-4">
-                                <Input
-                                  value={sp}
-                                  onChange={(e) => setServiceSubPoint(svc.id, gIdx, sIdx, e.target.value)}
-                                  placeholder="Sub-point"
-                                  className="text-sm"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="shrink-0 text-red-600"
-                                  onClick={() => removeServiceSubPoint(svc.id, gIdx, sIdx)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </Card>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Included / Excluded */}
-                  <div className="border-t border-border">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between p-4 text-left font-medium"
-                      onClick={() => toggleServiceSection(svc.id, 'includedExcluded')}
-                    >
-                      Includes & excludes
-                      {getServiceSections(svc.id).includedExcluded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                    {getServiceSections(svc.id).includedExcluded && (
-                      <div className="space-y-6 border-t border-border px-4 pb-4 pt-2">
-                        <div>
-                          <div className="mb-2 flex items-center justify-between">
-                            <Label className="text-base font-semibold">What&apos;s Included</Label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addServiceListItem(svc.id, 'includes')}
-                            >
-                              <Plus className="mr-1 h-3 w-3" /> Add
-                            </Button>
-                          </div>
-                          {(svc.includes?.length ? svc.includes : ['']).map((item, i) => (
-                            <div key={i} className="mb-2 flex gap-2">
-                              <Input
-                                value={item}
-                                onChange={(e) => setServiceListItem(svc.id, 'includes', i, e.target.value)}
-                                placeholder="e.g. Transport"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-600"
-                                onClick={() => removeServiceListItem(svc.id, 'includes', i)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <div className="mb-2 flex items-center justify-between">
-                            <Label className="text-base font-semibold">What&apos;s Excluded</Label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addServiceListItem(svc.id, 'excludes')}
-                            >
-                              <Plus className="mr-1 h-3 w-3" /> Add
-                            </Button>
-                          </div>
-                          {(svc.excludes?.length ? svc.excludes : ['']).map((item, i) => (
-                            <div key={i} className="mb-2 flex gap-2">
-                              <Input
-                                value={item}
-                                onChange={(e) => setServiceListItem(svc.id, 'excludes', i, e.target.value)}
-                                placeholder="e.g. Personal expenses"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-600"
-                                onClick={() => removeServiceListItem(svc.id, 'excludes', i)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Images */}
-                  <div className="border-t border-border">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between p-4 text-left font-medium"
-                      onClick={() => toggleServiceSection(svc.id, 'images')}
-                    >
-                      Images (min {MIN_SERVICE_IMAGES})
-                      {getServiceSections(svc.id).images ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                    {getServiceSections(svc.id).images && (
-                      <div className="space-y-4 border-t border-border px-4 pb-4 pt-2">
-                        <input
-                          ref={(el) => {
-                            serviceImageUploadRefs.current[svc.id] = el;
-                          }}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => {
-                            const files = Array.from(e.target.files ?? []);
-                            setServiceImages(svc.id, [...svc.images, ...files].slice(0, 5));
-                          }}
-                        />
-                        <div
-                          className="cursor-pointer rounded-lg border-2 border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted/50"
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.currentTarget.classList.add('bg-muted/50');
-                          }}
-                          onDragLeave={(e) => e.currentTarget.classList.remove('bg-muted/50')}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            e.currentTarget.classList.remove('bg-muted/50');
-                            const files = Array.from(e.dataTransfer.files ?? []);
-                            setServiceImages(svc.id, [...svc.images, ...files].slice(0, 5));
-                          }}
-                          onClick={() => serviceImageUploadRefs.current[svc.id]?.click()}
-                        >
-                          <Upload className="mx-auto mb-2 h-6 w-6" />
-                          Drag & drop or click to upload (max {Math.max(0, 5 - svc.images.length)} more)
-                        </div>
-                        {svc.images.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            {svc.images.length} file(s) selected
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <Button type="button" variant="outline" onClick={addService} className="w-full">
-                <Plus className="mr-2 h-4 w-4" /> Add another service
-              </Button>
-            </>
+            <MerchantOnboardingServicesStep
+              services={services}
+              minServiceImages={MIN_SERVICE_IMAGES}
+              serviceImageUploadRefs={serviceImageUploadRefs}
+              getServiceSections={getServiceSections}
+              toggleServiceSection={toggleServiceSection}
+              updateService={updateService}
+              addService={addService}
+              removeService={removeService}
+              addServicePoint={addServicePoint}
+              removeServicePoint={removeServicePoint}
+              setServicePointText={setServicePointText}
+              addServiceSubPoint={addServiceSubPoint}
+              setServiceSubPoint={setServiceSubPoint}
+              removeServiceSubPoint={removeServiceSubPoint}
+              addServiceListItem={addServiceListItem}
+              setServiceListItem={setServiceListItem}
+              removeServiceListItem={removeServiceListItem}
+              setServiceImages={setServiceImages}
+            />
           )}
 
           {/* Step 5: Success */}
@@ -1054,7 +723,9 @@ export default function MerchantOnboardingPage() {
                 </ul>
                 <p className="mt-2">Questions? Email hello@triplysquads.com or call +971 52 516 3595</p>
               </div>
-              <p className="text-xs text-muted-foreground">Redirecting to login to refresh your account...</p>
+              <p className="text-xs text-muted-foreground">
+                No action is needed right now. You&apos;ll be able to access your merchant dashboard after approval.
+              </p>
             </div>
           )}
         </CardContent>
@@ -1062,9 +733,9 @@ export default function MerchantOnboardingPage() {
         {/* Footer: Back + Proceed */}
         {step < 5 && (
           <CardFooter className="flex flex-col gap-3 p-6 sm:p-8 pt-6 border-t border-border bg-card">
-            {step === 2 && step2Errors.length > 0 && (
+            {step === 2 && showStep2Errors && step2Errors.length > 0 && (
               <p className="text-sm text-destructive">
-                Please fix: {step2Errors.join('; ')}
+                Please complete all required business details to continue.
               </p>
             )}
             <div className="flex flex-row justify-between gap-4">
@@ -1091,7 +762,7 @@ export default function MerchantOnboardingPage() {
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={!canProceedStep4() || isSubmitting}
+                disabled={!canProceedStep4 || isSubmitting}
               >
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Proceed to final step
@@ -1101,12 +772,6 @@ export default function MerchantOnboardingPage() {
           </CardFooter>
         )}
       </Card>
-
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          <Link href="/become-merchant" className="text-primary hover:underline">
-            Back to Become a Merchant
-          </Link>
-        </p>
       </div>
     </div>
   );

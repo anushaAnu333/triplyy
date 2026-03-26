@@ -7,6 +7,7 @@ import {
   getUserGrowth,
   getPendingActivities,
   getAllActivities,
+  getActivityById,
   approveActivity,
   rejectActivity,
 } from '../controllers/adminController';
@@ -32,6 +33,7 @@ import {
   getOnboardingDocument,
   approveOnboarding,
   rejectOnboarding,
+  deleteOnboarding,
 } from '../controllers/adminOnboardingController';
 import {
   adminListPackageBookings,
@@ -127,6 +129,10 @@ router.get('/activities/all', (req, res, next) =>
   getAllActivities(req as AuthRequest, res, next)
 );
 
+router.get('/activities/:id', (req, res, next) =>
+  getActivityById(req as AuthRequest, res, next)
+);
+
 router.put('/activities/:id/approve', (req, res, next) =>
   approveActivity(req as AuthRequest, res, next)
 );
@@ -150,6 +156,9 @@ router.put('/onboarding/:id/approve', (req, res, next) =>
 );
 router.put('/onboarding/:id/reject', (req, res, next) =>
   rejectOnboarding(req as AuthRequest, res, next)
+);
+router.delete('/onboarding/:id', (req, res, next) =>
+  deleteOnboarding(req as AuthRequest, res, next)
 );
 
 // Promotional package bookings (separate from destination bookings)

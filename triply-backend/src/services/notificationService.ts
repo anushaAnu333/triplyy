@@ -1,10 +1,11 @@
-import { Booking, PackageBooking, User } from '../models';
+import { ActivityBooking, Booking, PackageBooking, User } from '../models';
 import {
   sendDepositConfirmation,
   sendPaymentInvoice,
   sendBookingConfirmation,
   sendBookingRejection,
   sendDateSelectionConfirmation,
+  sendActivityApprovedPaymentPrompt,
 } from './emailService';
 import logger from '../utils/logger';
 
@@ -183,5 +184,41 @@ export const notifyUserDatesSelected = async (bookingId: string): Promise<void> 
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`Failed to send date selection confirmation to user: ${message}`);
+  }
+};
+
+/**
+ * When an activity is approved, prompt users who already created a booking
+ * (status=pending_payment) to complete payment to book the seat.
+ */
+export const notifyActivityApprovedPaymentPrompt = async (
+  activityId: string
+): Promise<void> => {
+  try {
+    const bookings = await ActivityBooking.find({
+      activityId,
+      status: 'pending_payment',
+    })
+      .populate('userId', 'email firstName lastName')
+      .populate('activityId', 'title');
+
+    if (!bookings.length) return;
+
+    for (const booking of bookings) {
+      const user = booking.userId as any;
+      const activity = booking.activityId as any;
+      if (!user?.email || !activity?.title) continue;
+
+      await sendActivityApprovedPaymentPrompt(
+        user._id.toString(),
+        booking._id.toString(),
+        booking.bookingReference,
+        activity.title,
+        booking.selectedDate
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Failed to send activity approved payment prompt: ${message}`);
   }
 };

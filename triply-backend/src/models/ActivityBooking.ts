@@ -28,11 +28,17 @@ export interface IActivityBooking extends Document {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
   activityId: mongoose.Types.ObjectId;
-  availabilityId: mongoose.Types.ObjectId; // Reference to specific date/slot
+  availabilityId: mongoose.Types.ObjectId;
+  /** All slots when the guest booked multiple days in one request */
+  availabilityIds?: mongoose.Types.ObjectId[];
   bookingReference: string;
   status: ActivityBookingStatus;
   payment: ActivityPayment;
-  selectedDate: Date;
+  selectedDate: Date; // Earliest activity day (sorting / legacy)
+  /** All activity days for this booking (same length as availabilityIds when set) */
+  selectedDates?: Date[];
+  /** Last day of the activity — used for payout timing after multi-day bookings */
+  lastActivityDate?: Date;
   numberOfParticipants: number;
   customerName: string;
   customerEmail: string;
@@ -40,6 +46,9 @@ export interface IActivityBooking extends Document {
   specialRequests?: string;
   linkedDestinationBookingId?: mongoose.Types.ObjectId; // Link to destination booking if added as add-on
   isAddOn?: boolean; // True if this activity was added to a destination booking
+  /** Merchant confirmed the requested date/slot; customer may pay after this + platform-approved activity */
+  merchantAvailabilityApproved?: boolean;
+  merchantAvailabilityApprovedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,6 +95,10 @@ const activityBookingSchema = new Schema<IActivityBooking>(
       ref: 'ActivityAvailability',
       required: [true, 'Availability ID is required'],
     },
+    availabilityIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'ActivityAvailability' }],
+      default: undefined,
+    },
     bookingReference: {
       type: String,
       unique: true,
@@ -103,6 +116,13 @@ const activityBookingSchema = new Schema<IActivityBooking>(
     selectedDate: {
       type: Date,
       required: [true, 'Selected date is required'],
+    },
+    selectedDates: {
+      type: [{ type: Date }],
+      default: undefined,
+    },
+    lastActivityDate: {
+      type: Date,
     },
     numberOfParticipants: {
       type: Number,
@@ -137,6 +157,13 @@ const activityBookingSchema = new Schema<IActivityBooking>(
       type: Boolean,
       default: false,
     },
+    merchantAvailabilityApproved: {
+      type: Boolean,
+      default: false,
+    },
+    merchantAvailabilityApprovedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
@@ -157,6 +184,9 @@ activityBookingSchema.index({ createdAt: -1 });
 activityBookingSchema.pre('save', function (next) {
   if (!this.bookingReference) {
     this.bookingReference = generateBookingReference();
+  }
+  if (!this.lastActivityDate && this.selectedDate) {
+    this.lastActivityDate = this.selectedDate;
   }
   next();
 });

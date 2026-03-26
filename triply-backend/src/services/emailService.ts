@@ -443,6 +443,80 @@ export const sendBookingRejection = async (
 };
 
 /**
+ * Send email when an activity is approved while the guest has a pending payment booking.
+ * This prompts the user to complete payment (to book the seat).
+ */
+export const sendActivityApprovedPaymentPrompt = async (
+  userId: string,
+  bookingId: string,
+  bookingReference: string,
+  activityTitle: string,
+  selectedDate: Date
+): Promise<boolean> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for activity approval payment prompt: ${userId}`);
+    return false;
+  }
+
+  const formattedSelectedDate = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(selectedDate);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f5; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .highlight { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #11998e; }
+        .button { display: inline-block; background: #11998e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Your activity is approved!</h1>
+        </div>
+        <div class="content">
+          <p>Dear ${user.firstName},</p>
+          <p>Great news! The activity you booked has been approved.</p>
+
+          <div class="highlight">
+            <p><strong>Activity:</strong> ${activityTitle}</p>
+            <p><strong>Date:</strong> ${formattedSelectedDate}</p>
+            <p><strong>Booking reference:</strong> ${bookingReference}</p>
+          </div>
+
+          <p>Next step: please complete your payment to book your seat.</p>
+          <a href="${env.FRONTEND_URL}/bookings/${bookingId}" class="button">Pay Now & Book Seat</a>
+
+          <div class="footer">
+            <p>TRIPLY - Your Travel Partner</p>
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `TRIPLY — Activity approved. Complete payment to book your seat`,
+    html,
+    userId,
+    emailType: 'activity_approved_payment_prompt',
+  });
+};
+
+/**
  * Send date selection confirmation to user
  */
 export const sendDateSelectionConfirmation = async (
@@ -790,5 +864,89 @@ export const sendInvitationEmail = async (
     subject: `Invitation to Join TRIPLY as ${role.charAt(0).toUpperCase() + role.slice(1)}`,
     html,
     emailType: 'email_verification', // Using existing type for now
+  });
+};
+
+function escapeHtmlForEmail(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Notify applicant that their merchant onboarding application was rejected.
+ * They may submit a new application after addressing feedback.
+ */
+export const sendMerchantOnboardingRejectedEmail = async (
+  userId: string,
+  businessName: string,
+  rejectionReason?: string
+): Promise<boolean> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for merchant onboarding rejection email: ${userId}`);
+    return false;
+  }
+
+  const baseUrl = (env.FRONTEND_URL || '').replace(/\/$/, '') || 'https://triplysquads.com';
+  const reapplyUrl = `${baseUrl}/become-merchant?openTerms=1`;
+  const reasonSection = rejectionReason?.trim()
+    ? `
+          <div style="background:#fff;padding:16px;border-radius:8px;margin:20px 0;border-left:4px solid #f97316;">
+            <p style="margin:0;font-weight:600;">Note from our team</p>
+            <p style="margin:8px 0 0;white-space:pre-wrap;color:#3f3f46;">${escapeHtmlForEmail(rejectionReason.trim())}</p>
+          </div>`
+    : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6; color: #18181b; background-color: #f4f4f5; }
+        .wrapper { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+        .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .header { background: #18181b; color: #ffffff; padding: 28px 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+        .content { padding: 28px 24px; }
+        .btn { display: inline-block; background: #ea580c; color: #fff !important; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 16px; }
+        .footer { text-align: center; margin-top: 24px; color: #71717a; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <div class="card">
+          <div class="header">
+            <h1>Merchant application update</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${escapeHtmlForEmail(user.firstName)},</p>
+            <p>Thank you for applying to the TRIPLY Merchant Partner Program. After review, we are unable to approve your application for <strong>${escapeHtmlForEmail(businessName)}</strong> at this time.</p>
+            ${reasonSection}
+            <p>You are welcome to submit a <strong>new application</strong> after updating your details or documents. Sign in, review the terms, and complete onboarding again from the link below.</p>
+            <p style="margin-top:8px;">
+              <a href="${reapplyUrl}" class="btn">Start merchant onboarding</a>
+            </p>
+            <p style="font-size:13px;color:#71717a;margin-top:20px;">If you have questions, contact hello@triplysquads.com or call +971 52 516 3595.</p>
+            <div class="footer">
+              <p>TRIPLY</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `TRIPLY — Merchant partner application not approved`,
+    html,
+    userId,
+    emailType: 'merchant_onboarding_rejected',
   });
 };
