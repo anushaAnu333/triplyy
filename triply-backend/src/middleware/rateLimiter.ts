@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import { Request } from 'express';
 import env from '../config/environment';
 
 /**
@@ -30,6 +31,14 @@ export const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
+  keyGenerator: (req: Request) => {
+    const ip = req.ip || '';
+    const emailRaw = (req.body?.email ?? '') as unknown;
+    const email = typeof emailRaw === 'string' ? emailRaw.trim().toLowerCase() : '';
+    // Combine IP + email so shared networks don't lock out all users.
+    // If email is missing/invalid, limiter falls back to IP-only.
+    return email ? `${ip}:${email}` : ip;
+  },
 });
 
 /**

@@ -15,6 +15,10 @@ import logger from './utils/logger';
 // Initialize Express app
 const app: Express = express();
 
+// Trust reverse proxy (Render / Nginx) so req.ip is the real client IP.
+// Required for rate limiting, logging, and security middleware behavior.
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
