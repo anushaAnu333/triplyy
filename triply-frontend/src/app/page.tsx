@@ -223,7 +223,12 @@ export default function HomePage() {
               <h1 
                 className={`text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] transition-all duration-700 delay-100 ${heroImageLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
               >
-                Your next adventure starts with AED 199.
+                Your next adventure starts with{' '}
+                <span className="tabular-nums">
+                  <span className="text-4xl">AED</span>{' '}
+                  <span className="align-baseline">199</span>
+                </span>
+                .
               </h1>
 
               <p 
