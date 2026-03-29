@@ -291,30 +291,31 @@ const processReferralCommission = async (
       return;
     }
 
-    // Calculate commission based on original deposit amount (before discount)
-    const originalDepositAmount = booking.depositPayment.amount + (user.discountAmount || 0);
-    
-    // Calculate commission based on referral code settings
-    let commissionAmount: number;
-    if (referralCode.discountAmount) {
-      // Fixed commission based on discount amount
-      commissionAmount = referralCode.discountAmount * 0.5; // 50% of discount as commission
-    } else if (referralCode.discountPercentage) {
-      // Percentage commission based on original deposit
-      commissionAmount = (originalDepositAmount * referralCode.discountPercentage) / 100;
-    } else {
-      // Default: 10% of original deposit
-      commissionAmount = (originalDepositAmount * 10) / 100;
-    }
+    // Partner payout uses the booking deposit total (e.g. AED 199) — same as `processAffiliateCommission`.
+    // `discountPercentage` / `discountAmount` on the code are for the *traveller's* price break only, not the partner %.
+    const depositTotal = booking.depositPayment.amount;
 
-    // Create commission record for the referrer
+    let commissionAmount: number;
+    if (referralCode.commissionType === 'fixed') {
+      commissionAmount = referralCode.fixedAmount || 0;
+    } else {
+      commissionAmount = (depositTotal * referralCode.commissionRate) / 100;
+    }
+    commissionAmount = Math.round(commissionAmount * 100) / 100;
+
+    const priorReferralRows = await Commission.countDocuments({
+      affiliateId: referralCode.affiliateId,
+      'metadata.type': 'referral',
+      'metadata.referredUserId': user._id.toString(),
+    });
+
     await Commission.create({
       affiliateId: referralCode.affiliateId,
       bookingId: booking._id,
       affiliateCode: user.referralCode,
-      bookingAmount: originalDepositAmount,
+      bookingAmount: depositTotal,
       commissionAmount,
-      commissionRate: referralCode.discountPercentage || 10,
+      commissionRate: referralCode.commissionRate,
       status: 'pending',
       metadata: {
         type: 'referral',
@@ -322,8 +323,10 @@ const processReferralCommission = async (
       },
     });
 
-    // Update referral code stats
-    referralCode.referralCount += 1;
+    /** Count unique referred travellers (first deposit per referred user), not one row per booking */
+    if (priorReferralRows === 0) {
+      referralCode.referralCount += 1;
+    }
     await referralCode.save();
 
     logger.info(`Referral commission ${commissionAmount} created for referrer ${referrer.email}`);

@@ -1,12 +1,11 @@
 import path from 'path';
-import fs from 'fs';
 import { Response, NextFunction } from 'express';
 import { Activity, MerchantOnboarding, User } from '../models';
 import { successResponse } from '../utils/apiResponse';
 import { getPaginationMeta } from '../utils/apiResponse';
 import { AuthRequest } from '../types/custom';
 import AppError from '../utils/AppError';
-import { cleanupFiles } from '../utils/upload';
+import { cleanupFiles, resolveUploadPathForServing } from '../utils/upload';
 import { uploadImages } from '../utils/cloudinary';
 import { sendMerchantOnboardingRejectedEmail } from '../services/emailService';
 import logger from '../utils/logger';
@@ -311,12 +310,7 @@ export const getOnboardingDocument = async (
     if (!filePath || typeof filePath !== 'string') {
       throw new AppError('Document not found for this application', 404);
     }
-    const resolvedPath = path.isAbsolute(filePath)
-      ? filePath
-      : path.join(process.cwd(), filePath);
-    if (!fs.existsSync(resolvedPath)) {
-      throw new AppError('File not found on server', 404);
-    }
+    const resolvedPath = resolveUploadPathForServing(filePath);
     const ext = path.extname(resolvedPath).toLowerCase();
     const contentTypes: Record<string, string> = {
       '.pdf': 'application/pdf',

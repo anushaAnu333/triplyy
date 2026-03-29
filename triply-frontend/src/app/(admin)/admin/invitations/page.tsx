@@ -106,7 +106,7 @@ export default function AdminInvitationsPage() {
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Invitations</h1>
+            <h1 className="text-2xl font-bold">Invitations</h1>
             <p className="text-muted-foreground mt-1">
               Invite new admins or affiliates to join the platform
             </p>
@@ -187,7 +187,7 @@ export default function AdminInvitationsPage() {
                           <Mail className="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <CardTitle className="text-lg">{invitation.email}</CardTitle>
+                          <CardTitle className="text-base">{invitation.email}</CardTitle>
                           <CardDescription>
                             {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
                           </CardDescription>
@@ -222,7 +222,7 @@ export default function AdminInvitationsPage() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Mail className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No invitations yet</h3>
+                  <h3 className="text-base font-semibold mb-2">No invitations yet</h3>
                   <p className="text-muted-foreground mb-4">
                     Start by sending an invitation to a new admin or affiliate
                   </p>

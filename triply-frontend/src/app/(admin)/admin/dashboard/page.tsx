@@ -83,8 +83,8 @@ export default function AdminDashboardPage() {
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your travel platform</p>
+          <h1 className="font-display text-2xl font-bold">Admin Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Overview of your travel platform</p>
         </div>
 
         {/* Stats Cards */}
@@ -93,8 +93,8 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-3xl font-bold">
+                  <p className="text-xs text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold">
                     {formatCurrency(stats?.overview.totalRevenue || 0)}
                   </p>
                 </div>
@@ -109,8 +109,8 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Bookings</p>
-                  <p className="text-3xl font-bold">{stats?.overview.totalBookings || 0}</p>
+                  <p className="text-xs text-muted-foreground">Total Bookings</p>
+                  <p className="text-2xl font-bold">{stats?.overview.totalBookings || 0}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-blue-600" />
@@ -123,8 +123,8 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-3xl font-bold">{stats?.overview.totalUsers || 0}</p>
+                  <p className="text-xs text-muted-foreground">Total Users</p>
+                  <p className="text-2xl font-bold">{stats?.overview.totalUsers || 0}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
                   <Users className="w-6 h-6 text-purple-600" />

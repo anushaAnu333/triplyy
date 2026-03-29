@@ -12,7 +12,9 @@ export type EmailType =
   | 'email_verification'
   | 'activity_inquiry'
   | 'merchant_onboarding_rejected'
-  | 'activity_approved_payment_prompt';
+  | 'activity_approved_payment_prompt'
+  | 'referral_partner_onboarding_approved'
+  | 'referral_partner_onboarding_rejected';
 
 export type EmailStatus = 'sent' | 'failed' | 'pending';
 
@@ -49,6 +51,8 @@ const emailLogSchema = new Schema<IEmailLog>(
         'activity_inquiry',
         'merchant_onboarding_rejected',
         'activity_approved_payment_prompt',
+        'referral_partner_onboarding_approved',
+        'referral_partner_onboarding_rejected',
       ],
       required: [true, 'Email type is required'],
     },

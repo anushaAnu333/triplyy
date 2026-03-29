@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { DollarSign, Filter, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -19,6 +19,15 @@ import { useAuth } from '@/context/AuthContext';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { affiliatesApi } from '@/lib/api/affiliates';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import {
+  AffiliateTable,
+  AffiliateTableBody,
+  AffiliateTableCell,
+  AffiliateTableHead,
+  AffiliateTableRow,
+  AffiliateTableScroll,
+  AffiliateTableTh,
+} from '@/components/affiliate/AffiliateDataTable';
 import { SearchFiltersModal, SearchFiltersTriggerButton } from '@/components/filters';
 
 const statusOptions = [
@@ -35,6 +44,10 @@ export default function AffiliateCommissionsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['affiliate-commissions', page, statusFilter],
@@ -63,14 +76,20 @@ export default function AffiliateCommissionsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400';
       case 'approved':
-        return 'bg-blue-100 text-blue-700';
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400';
       case 'paid':
-        return 'bg-green-100 text-green-700';
+        return 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400';
       default:
         return 'bg-gray-100 text-gray-700';
     }
+  };
+
+  const commissionSourceLabel = (commission: { metadata?: { type?: string } }) => {
+    const t = commission.metadata?.type;
+    if (t === 'referral') return 'Referral sign-up';
+    return 'Booking link';
   };
 
   return (
@@ -130,62 +149,70 @@ export default function AffiliateCommissionsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Commissions</CardTitle>
+            <CardDescription>
+              <span className="font-medium text-foreground">Basis</span> is the customer&apos;s deposit total
+              on that booking (e.g. AED 199). <span className="font-medium text-foreground">Your commission</span>{' '}
+              is your partner commission rate applied to that amount — not the traveller&apos;s signup discount
+              percent.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <LoadingSpinner />
               </div>
             ) : data?.data?.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-12 px-4">
                 <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No commissions found</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="text-left p-4 font-medium">Booking Reference</th>
-                      <th className="text-left p-4 font-medium">Code Used</th>
-                      <th className="text-left p-4 font-medium">Booking Amount</th>
-                      <th className="text-left p-4 font-medium">Commission</th>
-                      <th className="text-left p-4 font-medium">Rate</th>
-                      <th className="text-left p-4 font-medium">Status</th>
-                      <th className="text-left p-4 font-medium">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <AffiliateTableScroll>
+                <AffiliateTable>
+                  <AffiliateTableHead>
+                    <AffiliateTableTh>Booking reference</AffiliateTableTh>
+                    <AffiliateTableTh>Source</AffiliateTableTh>
+                    <AffiliateTableTh>Code</AffiliateTableTh>
+                    <AffiliateTableTh>Basis</AffiliateTableTh>
+                    <AffiliateTableTh>Your commission</AffiliateTableTh>
+                    <AffiliateTableTh>Rate</AffiliateTableTh>
+                    <AffiliateTableTh>Payout status</AffiliateTableTh>
+                    <AffiliateTableTh>Date</AffiliateTableTh>
+                  </AffiliateTableHead>
+                  <AffiliateTableBody>
                     {data?.data?.map((commission: any) => (
-                      <tr key={commission._id} className="border-b hover:bg-muted/30">
-                        <td className="p-4 font-mono">
+                      <AffiliateTableRow key={commission._id}>
+                        <AffiliateTableCell className="font-mono text-sm">
                           {commission.bookingId?.bookingReference || 'N/A'}
-                        </td>
-                        <td className="p-4 font-mono font-medium">
+                        </AffiliateTableCell>
+                        <AffiliateTableCell className="text-sm text-muted-foreground">
+                          {commissionSourceLabel(commission)}
+                        </AffiliateTableCell>
+                        <AffiliateTableCell className="font-mono text-sm font-medium">
                           {commission.affiliateCode}
-                        </td>
-                        <td className="p-4">
+                        </AffiliateTableCell>
+                        <AffiliateTableCell className="text-sm font-medium">
                           {formatCurrency(commission.bookingAmount)}
-                        </td>
-                        <td className="p-4 font-semibold text-green-600">
-                          +{formatCurrency(commission.commissionAmount)}
-                        </td>
-                        <td className="p-4">
+                        </AffiliateTableCell>
+                        <AffiliateTableCell className="font-semibold text-green-600">
+                          {formatCurrency(commission.commissionAmount)}
+                        </AffiliateTableCell>
+                        <AffiliateTableCell className="text-sm">
                           {commission.commissionRate}%
-                        </td>
-                        <td className="p-4">
+                        </AffiliateTableCell>
+                        <AffiliateTableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(commission.status)}`}>
                             {commission.status}
                           </span>
-                        </td>
-                        <td className="p-4 text-sm text-muted-foreground">
+                        </AffiliateTableCell>
+                        <AffiliateTableCell className="text-sm text-muted-foreground">
                           {formatDate(commission.createdAt)}
-                        </td>
-                      </tr>
+                        </AffiliateTableCell>
+                      </AffiliateTableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </AffiliateTableBody>
+                </AffiliateTable>
+              </AffiliateTableScroll>
             )}
           </CardContent>
         </Card>

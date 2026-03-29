@@ -19,6 +19,8 @@ import {
 } from '../controllers/invitationController';
 import {
   getAllAffiliates,
+  getAffiliateAdminDetails,
+  payAffiliateApprovedCommissions,
   getAllCommissions,
   approveCommission,
   markCommissionAsPaid,
@@ -35,6 +37,14 @@ import {
   rejectOnboarding,
   deleteOnboarding,
 } from '../controllers/adminOnboardingController';
+import {
+  listReferralPartnerApplications,
+  getReferralPartnerApplicationById,
+  getReferralPartnerDocument,
+  approveReferralPartnerApplication,
+  rejectReferralPartnerApplication,
+  deleteReferralPartnerApplication,
+} from '../controllers/adminReferralPartnerOnboardingController';
 import {
   adminListPackageBookings,
   adminAssignPackageTravelDates,
@@ -73,8 +83,19 @@ router.get('/affiliates', (req, res, next) =>
   getAllAffiliates(req as AuthRequest, res, next)
 );
 
-// Commission routes
-router.get('/commissions/:status?', (req, res, next) =>
+router.get('/affiliates/:id/details', (req, res, next) =>
+  getAffiliateAdminDetails(req as AuthRequest, res, next)
+);
+
+router.post('/affiliates/:affiliateId/pay-commissions', (req, res, next) =>
+  payAffiliateApprovedCommissions(req as AuthRequest, res, next)
+);
+
+// Commission routes — explicit list without path param (Express optional :param? is unreliable)
+router.get('/commissions', (req, res, next) =>
+  getAllCommissions(req as AuthRequest, res, next)
+);
+router.get('/commissions/:status', (req, res, next) =>
   getAllCommissions(req as AuthRequest, res, next)
 );
 
@@ -159,6 +180,26 @@ router.put('/onboarding/:id/reject', (req, res, next) =>
 );
 router.delete('/onboarding/:id', (req, res, next) =>
   deleteOnboarding(req as AuthRequest, res, next)
+);
+
+// Referral partner onboarding applications
+router.get('/referral-partner-onboarding', (req, res, next) =>
+  listReferralPartnerApplications(req as AuthRequest, res, next)
+);
+router.get('/referral-partner-onboarding/:id/documents/:docKey', (req, res, next) =>
+  getReferralPartnerDocument(req as AuthRequest, res, next)
+);
+router.get('/referral-partner-onboarding/:id', (req, res, next) =>
+  getReferralPartnerApplicationById(req as AuthRequest, res, next)
+);
+router.put('/referral-partner-onboarding/:id/approve', (req, res, next) =>
+  approveReferralPartnerApplication(req as AuthRequest, res, next)
+);
+router.put('/referral-partner-onboarding/:id/reject', (req, res, next) =>
+  rejectReferralPartnerApplication(req as AuthRequest, res, next)
+);
+router.delete('/referral-partner-onboarding/:id', (req, res, next) =>
+  deleteReferralPartnerApplication(req as AuthRequest, res, next)
 );
 
 // Promotional package bookings (separate from destination bookings)

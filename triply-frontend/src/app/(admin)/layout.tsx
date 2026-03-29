@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   LayoutDashboard, Calendar, MapPin, Users, 
-  Clock, LogOut, Menu, X, Store, Briefcase, Package, ClipboardList
+  Clock, LogOut, Menu, X, Store, Briefcase, Package, ClipboardList, UserPlus
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -21,6 +21,7 @@ const adminNavItems = [
   { href: '/admin/activity-bookings', label: 'Activity Bookings', icon: Calendar },
   { href: '/admin/activities', label: 'Activities', icon: Store },
   { href: '/admin/onboarding', label: 'Merchant Onboarding', icon: Briefcase },
+  { href: '/admin/referral-partner-onboarding', label: 'Referral Partner Onboarding', icon: UserPlus },
   { href: '/admin/availability', label: 'Availability', icon: Clock },
   { href: '/admin/affiliates', label: 'Affiliates', icon: Users },
 ];
@@ -66,24 +67,24 @@ export default function AdminLayout({
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="h-16 flex items-center justify-center border-b">
-            <Link href="/admin/dashboard" className="font-display text-2xl font-bold text-primary">
+          <div className="h-14 flex items-center justify-center border-b px-2">
+            <Link href="/admin/dashboard" className="font-display text-lg font-bold text-primary leading-tight text-center">
               TRIPLY Admin
             </Link>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {adminNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors leading-snug"
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   {item.label}
                 </Link>
               );
@@ -91,31 +92,32 @@ export default function AdminLayout({
           </nav>
 
           {/* User Section */}
-          <div className="p-4 border-t">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-semibold text-primary">
+          <div className="p-3 border-t">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-xs font-semibold text-primary">
                   {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
+                <p className="text-xs font-medium truncate leading-tight">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-[11px] text-muted-foreground truncate leading-tight">
                   {user?.email}
                 </p>
               </div>
             </div>
             <Button
               variant="outline"
-              className="w-full"
+              size="sm"
+              className="w-full text-xs h-8"
               onClick={() => {
                 logout();
                 router.push('/login');
               }}
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-3.5 w-3.5 mr-2" />
               Logout
             </Button>
           </div>

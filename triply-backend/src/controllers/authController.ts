@@ -183,6 +183,8 @@ export const login = async (
         isEmailVerified: user.isEmailVerified,
         merchantTermsAcceptedAt: user.merchantTermsAcceptedAt,
         merchantTermsVersion: user.merchantTermsVersion,
+        referralPartnerTermsAcceptedAt: user.referralPartnerTermsAcceptedAt,
+        referralPartnerTermsVersion: user.referralPartnerTermsVersion,
       },
     });
   } catch (error) {
@@ -383,6 +385,8 @@ export const getMe = async (
       profileImage: user.profileImage,
       merchantTermsAcceptedAt: user.merchantTermsAcceptedAt,
       merchantTermsVersion: user.merchantTermsVersion,
+      referralPartnerTermsAcceptedAt: user.referralPartnerTermsAcceptedAt,
+      referralPartnerTermsVersion: user.referralPartnerTermsVersion,
       createdAt: user.createdAt,
     });
   } catch (error) {

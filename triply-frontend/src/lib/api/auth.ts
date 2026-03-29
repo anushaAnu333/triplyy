@@ -25,6 +25,8 @@ export interface User {
   profileImage?: string;
   merchantTermsAcceptedAt?: string;
   merchantTermsVersion?: string;
+  referralPartnerTermsAcceptedAt?: string;
+  referralPartnerTermsVersion?: string;
 }
 
 export interface AuthResponse {

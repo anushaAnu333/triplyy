@@ -128,3 +128,22 @@ export const cleanupFiles = (filePaths: string[]): void => {
     }
   });
 };
+
+const UPLOADS_ROOT = path.resolve(process.cwd(), 'uploads');
+
+/**
+ * Resolve a stored path for serving; must resolve under {@link UPLOADS_ROOT} (blocks path traversal).
+ */
+export function resolveUploadPathForServing(filePath: string): string {
+  const resolved = path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(process.cwd(), filePath);
+  const relativeToUploads = path.relative(UPLOADS_ROOT, resolved);
+  if (relativeToUploads.startsWith('..') || path.isAbsolute(relativeToUploads)) {
+    throw new AppError('Invalid document path', 403);
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new AppError('File not found on server', 404);
+  }
+  return resolved;
+}

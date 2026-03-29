@@ -950,3 +950,152 @@ export const sendMerchantOnboardingRejectedEmail = async (
     emailType: 'merchant_onboarding_rejected',
   });
 };
+
+/**
+ * Notify applicant that their referral partner onboarding was approved.
+ * Includes dashboard link and reminder to sign in again for an updated session.
+ */
+export const sendReferralPartnerOnboardingApprovedEmail = async (
+  userId: string,
+  affiliateCode: string
+): Promise<boolean> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for referral partner approval email: ${userId}`);
+    return false;
+  }
+
+  const baseUrl = (env.FRONTEND_URL || '').replace(/\/$/, '') || 'https://triplysquads.com';
+  const dashboardUrl = `${baseUrl}/affiliate/dashboard`;
+  const loginUrl = `${baseUrl}/login?redirect=/affiliate/dashboard`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6; color: #18181b; background-color: #f4f4f5; }
+        .wrapper { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+        .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .header { background: #18181b; color: #ffffff; padding: 28px 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+        .content { padding: 28px 24px; }
+        .code-box { background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 16px 0; text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 0.05em; font-family: ui-monospace, monospace; }
+        .btn { display: inline-block; background: #ea580c; color: #fff !important; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 16px; }
+        .footer { text-align: center; margin-top: 24px; color: #71717a; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <div class="card">
+          <div class="header">
+            <h1>You&apos;re a TRIPLY referral partner</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${escapeHtmlForEmail(user.firstName)},</p>
+            <p>Great news — your <strong>Referral Partner</strong> application has been <strong>approved</strong>. You can start sharing your code and earning commissions on qualifying bookings.</p>
+            <p style="margin:0 0 8px;font-weight:600;">Your referral code</p>
+            <div class="code-box">${escapeHtmlForEmail(affiliateCode)}</div>
+            <p><strong>Important:</strong> Please <strong>sign out and sign in again</strong> (or open a fresh login) so your account picks up your referral partner access.</p>
+            <p style="margin-top:8px;">
+              <a href="${loginUrl}" class="btn">Sign in to dashboard</a>
+            </p>
+            <p style="margin-top:16px;font-size:14px;">
+              Or go directly to your dashboard: <a href="${dashboardUrl}" style="color:#ea580c;">${dashboardUrl}</a>
+            </p>
+            <p style="font-size:13px;color:#71717a;margin-top:20px;">Questions? hello@triplysquads.com · +971 52 516 3595</p>
+            <div class="footer">
+              <p>TRIPLY</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `TRIPLY — Referral partner application approved`,
+    html,
+    userId,
+    emailType: 'referral_partner_onboarding_approved',
+  });
+};
+
+/**
+ * Notify applicant that their referral partner application was not approved.
+ */
+export const sendReferralPartnerOnboardingRejectedEmail = async (
+  userId: string,
+  businessName: string,
+  rejectionReason?: string
+): Promise<boolean> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    logger.error(`User not found for referral partner rejection email: ${userId}`);
+    return false;
+  }
+
+  const baseUrl = (env.FRONTEND_URL || '').replace(/\/$/, '') || 'https://triplysquads.com';
+  const reapplyUrl = `${baseUrl}/referral-partner`;
+  const reasonSection = rejectionReason?.trim()
+    ? `
+          <div style="background:#fff;padding:16px;border-radius:8px;margin:20px 0;border-left:4px solid #f97316;">
+            <p style="margin:0;font-weight:600;">Note from our team</p>
+            <p style="margin:8px 0 0;white-space:pre-wrap;color:#3f3f46;">${escapeHtmlForEmail(rejectionReason.trim())}</p>
+          </div>`
+    : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6; color: #18181b; background-color: #f4f4f5; }
+        .wrapper { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+        .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .header { background: #18181b; color: #ffffff; padding: 28px 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+        .content { padding: 28px 24px; }
+        .btn { display: inline-block; background: #ea580c; color: #fff !important; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 16px; }
+        .footer { text-align: center; margin-top: 24px; color: #71717a; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <div class="card">
+          <div class="header">
+            <h1>Referral partner application update</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${escapeHtmlForEmail(user.firstName)},</p>
+            <p>Thank you for applying to the TRIPLY Referral Partner Program. After review, we are unable to approve your application for <strong>${escapeHtmlForEmail(businessName)}</strong> at this time.</p>
+            ${reasonSection}
+            <p>You may submit a new application when you&apos;re ready from the link below.</p>
+            <p style="margin-top:8px;">
+              <a href="${reapplyUrl}" class="btn">Referral partner program</a>
+            </p>
+            <p style="font-size:13px;color:#71717a;margin-top:20px;">If you have questions, contact hello@triplysquads.com or call +971 52 516 3595.</p>
+            <div class="footer">
+              <p>TRIPLY</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `TRIPLY — Referral partner application not approved`,
+    html,
+    userId,
+    emailType: 'referral_partner_onboarding_rejected',
+  });
+};

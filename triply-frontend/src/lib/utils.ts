@@ -70,6 +70,25 @@ export function getBookingStatusLabel(status: string): string {
   return labels[status] || status;
 }
 
+/** Commission / payout workflow on affiliate commissions (`pending` → `approved` → `paid`). */
+export function getPayoutStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-blue-100 text-blue-800',
+    paid: 'bg-green-100 text-green-800',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-800';
+}
+
+export function getPayoutStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'Pending',
+    approved: 'Approved',
+    paid: 'Paid',
+  };
+  return labels[status] || status;
+}
+
 /** Merchant hub pages: wide column; horizontal padding only (parent layout supplies top offset for fixed header). */
 export const MERCHANT_PAGE_WIDTH_CLASS =
   'mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8';

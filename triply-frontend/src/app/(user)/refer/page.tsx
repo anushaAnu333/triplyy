@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   Gift, Copy, Check, Users, DollarSign, 
   TrendingUp, Share2, Mail, MessageSquare, 
-  Loader2, Calendar, User
+  Loader2, Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,15 @@ import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { affiliatesApi } from '@/lib/api/affiliates';
 import { formatDate, formatCurrency } from '@/lib/utils';
+import {
+  AffiliateTable,
+  AffiliateTableBody,
+  AffiliateTableCell,
+  AffiliateTableHead,
+  AffiliateTableRow,
+  AffiliateTableScroll,
+  AffiliateTableTh,
+} from '@/components/affiliate/AffiliateDataTable';
 
 export default function ReferPage() {
   const router = useRouter();
@@ -264,50 +273,55 @@ export default function ReferPage() {
           {/* Referred Users */}
           <Card>
             <CardHeader>
-              <CardTitle>People You've Referred</CardTitle>
+              <CardTitle>People You&apos;ve Referred</CardTitle>
               <CardDescription>
                 {referralsData?.data?.length || 0} of {stats.totalReferrals} total referrals
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {referralsData?.data?.length > 0 ? (
-                <div className="space-y-4">
-                  {referralsData.data.map((referral: any) => (
-                    <div
-                      key={referral._id}
-                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">
+            <CardContent className="p-0">
+              {referralsData?.data?.length ? (
+                <AffiliateTableScroll>
+                  <AffiliateTable>
+                    <AffiliateTableHead>
+                      <AffiliateTableTh>Name</AffiliateTableTh>
+                      <AffiliateTableTh>Email</AffiliateTableTh>
+                      <AffiliateTableTh>Code used</AffiliateTableTh>
+                      <AffiliateTableTh>Status</AffiliateTableTh>
+                      <AffiliateTableTh>Commission</AffiliateTableTh>
+                      <AffiliateTableTh>Joined</AffiliateTableTh>
+                    </AffiliateTableHead>
+                    <AffiliateTableBody>
+                      {referralsData.data.map((referral: any) => (
+                        <AffiliateTableRow key={referral._id}>
+                          <AffiliateTableCell className="font-medium">
                             {referral.firstName} {referral.lastName}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{referral.email}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Joined {formatDate(referral.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {referral.hasBooking ? (
-                          <>
-                            <Badge variant="default" className="mb-1">Booked</Badge>
-                            <p className="text-sm font-medium text-primary">
-                              {formatCurrency(referral.totalEarnings)}
-                            </p>
-                          </>
-                        ) : (
-                          <Badge variant="secondary">No booking yet</Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                          </AffiliateTableCell>
+                          <AffiliateTableCell className="text-sm text-muted-foreground">
+                            {referral.email}
+                          </AffiliateTableCell>
+                          <AffiliateTableCell className="font-mono text-sm">
+                            {referral.referralCode || '—'}
+                          </AffiliateTableCell>
+                          <AffiliateTableCell>
+                            {referral.hasBooking ? (
+                              <Badge variant="default">Booked</Badge>
+                            ) : (
+                              <Badge variant="secondary">No booking yet</Badge>
+                            )}
+                          </AffiliateTableCell>
+                          <AffiliateTableCell className="font-semibold text-primary">
+                            {referral.hasBooking ? formatCurrency(referral.totalEarnings) : '—'}
+                          </AffiliateTableCell>
+                          <AffiliateTableCell className="text-sm text-muted-foreground">
+                            {formatDate(referral.createdAt)}
+                          </AffiliateTableCell>
+                        </AffiliateTableRow>
+                      ))}
+                    </AffiliateTableBody>
+                  </AffiliateTable>
+                </AffiliateTableScroll>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 px-4 text-muted-foreground">
                   <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No referrals yet</p>
                   <p className="text-sm">Start sharing your code to earn!</p>
@@ -322,48 +336,48 @@ export default function ReferPage() {
               <CardTitle>Commission History</CardTitle>
               <CardDescription>Your earnings from referrals</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {commissionsData?.data?.length > 0 ? (
-                <div className="space-y-4">
-                  {commissionsData.data.map((commission: any) => (
-                    <div
-                      key={commission._id}
-                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {commission.bookingId?.bookingReference || 'N/A'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(commission.createdAt)}
-                        </p>
-                        {commission.metadata?.referredUserId && (
-                          <p className="text-xs text-muted-foreground">
-                            Referred user booking
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-primary">
-                          {formatCurrency(commission.commissionAmount)}
-                        </p>
-                        <Badge
-                          variant={
-                            commission.status === 'paid'
-                              ? 'default'
-                              : commission.status === 'approved'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                        >
-                          {commission.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <AffiliateTableScroll>
+                  <AffiliateTable>
+                    <AffiliateTableHead>
+                      <AffiliateTableTh>Booking</AffiliateTableTh>
+                      <AffiliateTableTh>Amount</AffiliateTableTh>
+                      <AffiliateTableTh>Status</AffiliateTableTh>
+                      <AffiliateTableTh>Date</AffiliateTableTh>
+                    </AffiliateTableHead>
+                    <AffiliateTableBody>
+                      {commissionsData.data.map((commission: any) => (
+                        <AffiliateTableRow key={commission._id}>
+                          <AffiliateTableCell className="font-mono text-sm">
+                            {commission.bookingId?.bookingReference || 'N/A'}
+                          </AffiliateTableCell>
+                          <AffiliateTableCell className="font-semibold text-primary">
+                            {formatCurrency(commission.commissionAmount)}
+                          </AffiliateTableCell>
+                          <AffiliateTableCell>
+                            <Badge
+                              variant={
+                                commission.status === 'paid'
+                                  ? 'default'
+                                  : commission.status === 'approved'
+                                    ? 'secondary'
+                                    : 'outline'
+                              }
+                            >
+                              {commission.status}
+                            </Badge>
+                          </AffiliateTableCell>
+                          <AffiliateTableCell className="text-sm text-muted-foreground">
+                            {formatDate(commission.createdAt)}
+                          </AffiliateTableCell>
+                        </AffiliateTableRow>
+                      ))}
+                    </AffiliateTableBody>
+                  </AffiliateTable>
+                </AffiliateTableScroll>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 px-4 text-muted-foreground">
                   <DollarSign className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No commissions yet</p>
                   <p className="text-sm">Earn when your referrals book!</p>

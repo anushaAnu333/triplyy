@@ -19,14 +19,47 @@ import {
   requestWithdrawal,
   getMyWithdrawals,
 } from '../controllers/affiliateController';
+import {
+  getReferralPartnerTerms,
+  acceptReferralPartnerTerms,
+  getReferralPartnerOnboardingStatus,
+  submitReferralPartnerOnboarding,
+} from '../controllers/referralPartnerOnboardingController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly, affiliateOnly, adminOrAffiliate } from '../middleware/roleCheck';
 import { AuthRequest } from '../types/custom';
+import { uploadOnboardingFiles } from '../utils/upload';
 
 const router = Router();
 
 // Public routes
 router.get('/validate/:code', validateCode);
+
+/** Referral partner terms (public read) */
+router.get('/terms', (req, res, next) => getReferralPartnerTerms(req, res, next));
+
+router.post(
+  '/terms/accept',
+  authenticate as any,
+  (req, res, next) => acceptReferralPartnerTerms(req as AuthRequest, res, next)
+);
+
+router.get(
+  '/onboarding/status',
+  authenticate as any,
+  (req, res, next) => getReferralPartnerOnboardingStatus(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/onboarding',
+  authenticate as any,
+  (req, res, next) => {
+    uploadOnboardingFiles.any()(req, res, (err) => {
+      if (err) return next(err);
+      submitReferralPartnerOnboarding(req as AuthRequest, res, next);
+    });
+  }
+);
 
 // User referral routes (accessible to all authenticated users)
 router.get(

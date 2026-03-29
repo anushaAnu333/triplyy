@@ -136,7 +136,7 @@ export default function AdminDestinationsPage() {
           <Card>
             <CardContent className="py-16 text-center">
               <MapPin className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-              <h3 className="mb-2 text-xl font-semibold">No destinations yet</h3>
+              <h3 className="mb-2 text-lg font-semibold">No destinations yet</h3>
               <p className="mb-6 text-muted-foreground">
                 Start by adding your first travel destination
               </p>
@@ -175,7 +175,7 @@ export default function AdminDestinationsPage() {
                   </span>
                 </div>
                 <CardContent className="p-4">
-                  <h3 className="font-display mb-1 text-xl font-semibold">{destination.name}</h3>
+                  <h3 className="font-display mb-1 text-lg font-semibold">{destination.name}</h3>
                   <p className="mb-3 text-sm text-muted-foreground">
                     {destination.country} • {destination.duration.days} days
                   </p>

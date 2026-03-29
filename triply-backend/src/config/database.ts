@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import env from './environment';
 import logger from '../utils/logger';
-import { MerchantOnboarding } from '../models';
+import { MerchantOnboarding, ReferralPartnerOnboarding } from '../models';
 
 /**
  * Establishes connection to MongoDB database
@@ -55,6 +55,39 @@ const connectDatabase = async (): Promise<void> => {
     };
 
     await syncMerchantOnboardingIndexes();
+
+    const syncReferralPartnerOnboardingIndexes = async (): Promise<void> => {
+      if (env.NODE_ENV === 'production') return;
+
+      try {
+        const indexes = await ReferralPartnerOnboarding.collection.indexes();
+        const uniqueUserIdIndexes = indexes.filter(
+          (i) => i.unique === true && i.key && Object.prototype.hasOwnProperty.call(i.key, 'userId')
+        );
+
+        for (const idx of uniqueUserIdIndexes) {
+          if (!idx.name) {
+            logger.warn('Skipping legacy unique index without a name');
+            continue;
+          }
+          logger.warn(`Dropping legacy unique index on ReferralPartnerOnboarding.userId: ${idx.name}`);
+          await ReferralPartnerOnboarding.collection.dropIndex(idx.name);
+        }
+
+        await ReferralPartnerOnboarding.collection.createIndex(
+          { userId: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { status: { $in: ['pending', 'reapplied'] } },
+          }
+        );
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logger.warn(`Failed to sync ReferralPartnerOnboarding indexes: ${msg}`);
+      }
+    };
+
+    await syncReferralPartnerOnboardingIndexes();
 
     mongoose.connection.on('error', (err) => {
       logger.error(`MongoDB connection error: ${err.message}`);

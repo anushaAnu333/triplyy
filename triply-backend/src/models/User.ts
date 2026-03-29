@@ -17,6 +17,8 @@ export interface IUser extends Document {
   discountAmount?: number; // Discount received from referral
   merchantTermsAcceptedAt?: Date;
   merchantTermsVersion?: string;
+  referralPartnerTermsAcceptedAt?: Date;
+  referralPartnerTermsVersion?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,6 +85,13 @@ const userSchema = new Schema<IUser>(
       type: Date,
     },
     merchantTermsVersion: {
+      type: String,
+      trim: true,
+    },
+    referralPartnerTermsAcceptedAt: {
+      type: Date,
+    },
+    referralPartnerTermsVersion: {
       type: String,
       trim: true,
     },

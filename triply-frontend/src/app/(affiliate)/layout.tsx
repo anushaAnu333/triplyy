@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  LayoutDashboard, Calendar, DollarSign, 
-  Share2, Settings, LogOut, Menu, X 
+  LayoutDashboard, Calendar, 
+  Share2, LogOut, Menu, X, Users
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils';
 
 const affiliateNavItems = [
   { href: '/affiliate/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/affiliate/referrals', label: 'Referral sign-ups', icon: Users },
   { href: '/affiliate/bookings', label: 'Referral Bookings', icon: Calendar },
-  { href: '/affiliate/commissions', label: 'Commissions', icon: DollarSign },
 ];
 
 export default function AffiliateLayout({
@@ -59,24 +59,24 @@ export default function AffiliateLayout({
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="h-16 flex items-center justify-center border-b">
-            <Link href="/affiliate/dashboard" className="font-display text-2xl font-bold text-primary">
+          <div className="h-14 flex items-center justify-center border-b px-2">
+            <Link href="/affiliate/dashboard" className="font-display text-lg font-bold text-primary leading-tight text-center">
               TRIPLY Partner
             </Link>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-3 space-y-1">
             {affiliateNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   {item.label}
                 </Link>
               );
@@ -84,38 +84,39 @@ export default function AffiliateLayout({
           </nav>
 
           {/* User Section */}
-          <div className="p-4 border-t">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-semibold text-primary">
+          <div className="p-3 border-t">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-xs font-semibold text-primary">
                   {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
+                <p className="text-xs font-medium truncate leading-tight">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-[11px] text-muted-foreground truncate leading-tight">
                   Affiliate Partner
                 </p>
               </div>
             </div>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full" asChild>
+            <div className="space-y-1.5">
+              <Button variant="outline" size="sm" className="w-full text-xs h-8" asChild>
                 <Link href="/destinations">
-                  <Share2 className="h-4 w-4 mr-2" />
+                  <Share2 className="h-3.5 w-3.5 mr-2" />
                   Browse Destinations
                 </Link>
               </Button>
               <Button
                 variant="ghost"
-                className="w-full"
+                size="sm"
+                className="w-full text-xs h-8"
                 onClick={() => {
                   logout();
                   router.push('/login');
                 }}
               >
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-3.5 w-3.5 mr-2" />
                 Logout
               </Button>
             </div>

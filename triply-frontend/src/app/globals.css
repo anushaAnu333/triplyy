@@ -83,6 +83,8 @@
   
   html {
     scroll-behavior: smooth;
+    /* Slightly smaller root so headings, body, and Tailwind rem utilities read smaller sitewide */
+    font-size: 87.5%;
   }
   
   body {

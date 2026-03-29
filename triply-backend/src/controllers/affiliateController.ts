@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import { User, AffiliateCode, Commission, Booking, Withdrawal } from '../models';
+import {
+  User,
+  AffiliateCode,
+  Commission,
+  Booking,
+  Withdrawal,
+  ReferralPartnerOnboarding,
+} from '../models';
 import { successResponse, createdResponse, getPaginationMeta } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest, PaginationQuery } from '../types/custom';
@@ -8,50 +15,19 @@ import { generateAffiliateCode } from '../utils/generateReference';
 import { generateAffiliateReport, convertToCSV } from '../services/reportService';
 
 /**
- * Register as affiliate
+ * Register as affiliate (legacy — disabled: use referral partner onboarding + admin approval)
  * POST /api/v1/affiliates/register
  */
 export const registerAsAffiliate = async (
-  req: AuthRequest,
-  res: Response,
+  _req: AuthRequest,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = req.user.userId;
-
-    // Check if user is already an affiliate
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new AppError('User not found', 404);
-    }
-
-    if (user.role === 'affiliate') {
-      throw new AppError('You are already registered as an affiliate', 400);
-    }
-
-    if (user.role === 'admin') {
-      throw new AppError('Admins cannot register as affiliates', 400);
-    }
-
-    // Update user role
-    user.role = 'affiliate';
-    await user.save();
-
-    // Generate affiliate code
-    const code = generateAffiliateCode(user.firstName);
-    const affiliateCode = await AffiliateCode.create({
-      affiliateId: userId,
-      code,
-      commissionRate: 10, // Default 10%
-      commissionType: 'percentage',
-      canShareReferral: true, // Allow affiliates to share referral codes
-      discountPercentage: 10, // Default 10% discount for referred users
-    });
-
-    createdResponse(res, 'Successfully registered as affiliate', {
-      affiliateCode: affiliateCode.code,
-      commissionRate: affiliateCode.commissionRate,
-    });
+    throw new AppError(
+      'Referral partner signup is completed through onboarding. Submit your application from the Referral Partner page and wait for admin approval.',
+      400
+    );
   } catch (error) {
     next(error);
   }
@@ -68,9 +44,29 @@ export const getAffiliateDashboard = async (
 ): Promise<void> => {
   try {
     const userId = req.user.userId;
+    const affiliateObjectId = new mongoose.Types.ObjectId(userId);
 
     // Get affiliate codes
     const codes = await AffiliateCode.find({ affiliateId: userId });
+
+    // Signups per referral code (source of truth — matches User.referredBy + referralCode)
+    const signupRows = await User.aggregate<{ _id: string; count: number }>([
+      {
+        $match: {
+          referredBy: affiliateObjectId,
+          referralCode: { $exists: true, $nin: [null, ''] },
+        },
+      },
+      {
+        $group: {
+          _id: { $toUpper: '$referralCode' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+    const signupsByCode = new Map(signupRows.map((r) => [r._id, r.count]));
+
+    const totalReferredUsers = await User.countDocuments({ referredBy: affiliateObjectId });
 
     // Get commission stats
     const commissionStats = await Commission.aggregate([
@@ -84,23 +80,56 @@ export const getAffiliateDashboard = async (
       },
     ]);
 
-    // Get recent bookings
-    const recentBookings = await Booking.find({
-      affiliateId: userId,
-    })
-      .populate('destinationId', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5);
+    // Recent trips from referred users (same source as GET /affiliates/referral-bookings)
+    const referredUserIds = await User.distinct('_id', { referredBy: affiliateObjectId });
+    let recentBookings: Array<Record<string, unknown>> = [];
+    if (referredUserIds.length > 0) {
+      const recentRaw = await Booking.find({ userId: { $in: referredUserIds } })
+        .populate('destinationId', 'name')
+        .populate('userId', 'firstName lastName email referralCode')
+        .select('bookingReference status depositPayment createdAt numberOfTravellers userId')
+        .sort({ createdAt: -1 })
+        .limit(5);
+
+      const recentIds = recentRaw.map((b) => b._id);
+      const recentCommissions =
+        recentIds.length > 0
+          ? await Commission.find({
+              affiliateId: affiliateObjectId,
+              bookingId: { $in: recentIds },
+            }).lean()
+          : [];
+      const recentCommissionByBooking = new Map(
+        recentCommissions.map((c) => [String(c.bookingId), c])
+      );
+
+      recentBookings = recentRaw.map((b) => {
+        const row = b.toObject();
+        const c = recentCommissionByBooking.get(String(b._id));
+        return {
+          ...row,
+          referralCommission: c
+            ? {
+                commissionAmount: c.commissionAmount,
+                commissionRate: c.commissionRate,
+                status: c.status,
+                commissionBasisAmount: c.bookingAmount,
+                affiliateCode: c.affiliateCode,
+              }
+            : null,
+        };
+      });
+    }
 
     // Calculate totals
     let totalEarnings = 0;
     let pendingEarnings = 0;
     let approvedEarnings = 0;
     let paidEarnings = 0;
-    let totalBookings = 0;
+    let commissionRecordCount = 0;
 
     commissionStats.forEach((stat) => {
-      totalBookings += stat.count;
+      commissionRecordCount += stat.count;
       totalEarnings += stat.total;
       if (stat._id === 'pending') {
         pendingEarnings += stat.total;
@@ -113,19 +142,28 @@ export const getAffiliateDashboard = async (
 
     successResponse(res, 'Dashboard data retrieved', {
       stats: {
-        totalBookings,
+        /** @deprecated Prefer totalReferredUsers for "people referred" — this is commission row count */
+        totalBookings: commissionRecordCount,
+        totalReferredUsers,
         totalEarnings,
         pendingEarnings,
         approvedEarnings,
         paidEarnings,
       },
-      codes: codes.map((c) => ({
-        code: c.code,
-        commissionRate: c.commissionRate,
-        usageCount: c.usageCount,
-        totalEarnings: c.totalEarnings,
-        isActive: c.isActive,
-      })),
+      codes: codes.map((c) => {
+        const codeUpper = c.code.toUpperCase();
+        const signupCount = signupsByCode.get(codeUpper) ?? 0;
+        return {
+          code: c.code,
+          commissionRate: c.commissionRate,
+          /** Bookings that stored this code on the booking (link/checkout flow) */
+          usageCount: c.usageCount,
+          /** Accounts registered with this code (refer-a-friend signup flow) */
+          signupCount,
+          totalEarnings: c.totalEarnings,
+          isActive: c.isActive,
+        };
+      }),
       recentBookings,
     });
   } catch (error) {
@@ -259,17 +297,44 @@ export const getAffiliateBookings = async (
     const [bookings, total] = await Promise.all([
       Booking.find({ affiliateId: userId })
         .populate('destinationId', 'name thumbnailImage')
-        .select('bookingReference status depositPayment createdAt')
+        .select('bookingReference status depositPayment createdAt affiliateCode userId')
         .skip(skip)
         .limit(limitNum)
         .sort({ createdAt: -1 }),
       Booking.countDocuments({ affiliateId: userId }),
     ]);
 
+    const bIds = bookings.map((b) => b._id);
+    const comms =
+      bIds.length > 0
+        ? await Commission.find({
+            affiliateId: new mongoose.Types.ObjectId(userId),
+            bookingId: { $in: bIds },
+          }).lean()
+        : [];
+    const commByBooking = new Map(comms.map((c) => [String(c.bookingId), c]));
+
+    const enriched = bookings.map((b) => {
+      const row = b.toObject();
+      const c = commByBooking.get(String(b._id));
+      return {
+        ...row,
+        bookingCommission: c
+          ? {
+              commissionAmount: c.commissionAmount,
+              commissionRate: c.commissionRate,
+              status: c.status,
+              commissionBasisAmount: c.bookingAmount,
+              affiliateCode: c.affiliateCode,
+            }
+          : null,
+      };
+    });
+
     successResponse(
       res,
       'Affiliate bookings retrieved',
-      bookings,
+      enriched,
       getPaginationMeta(pageNum, limitNum, total)
     );
   } catch (error) {
@@ -324,18 +389,51 @@ export const getReferralBookings = async (
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate('destinationId', 'name thumbnailImage')
-        .populate('userId', 'firstName lastName email')
-        .select('bookingReference status depositPayment createdAt numberOfTravellers')
+        .populate('userId', 'firstName lastName email referralCode')
+        .select(
+          'bookingReference status depositPayment createdAt updatedAt numberOfTravellers userId travelDates specialRequests rejectionReason affiliateCode adminNotes calendarUnlockedUntil'
+        )
         .skip(skip)
         .limit(limitNum)
         .sort({ createdAt: -1 }),
       Booking.countDocuments(query),
     ]);
 
+    const bookingIds = bookings.map((b) => b._id);
+    const commissionsForBookings =
+      bookingIds.length > 0
+        ? await Commission.find({
+            affiliateId: new mongoose.Types.ObjectId(userId),
+            bookingId: { $in: bookingIds },
+          }).lean()
+        : [];
+
+    const commissionByBookingId = new Map(
+      commissionsForBookings.map((c) => [String(c.bookingId), c])
+    );
+
+    const enriched = bookings.map((b) => {
+      const row = b.toObject();
+      const c = commissionByBookingId.get(String(b._id));
+      return {
+        ...row,
+        referralCommission: c
+          ? {
+              commissionAmount: c.commissionAmount,
+              commissionRate: c.commissionRate,
+              status: c.status,
+              /** Amount the commission was calculated from (e.g. deposit paid + referral discount) */
+              commissionBasisAmount: c.bookingAmount,
+              affiliateCode: c.affiliateCode,
+            }
+          : null,
+      };
+    });
+
     successResponse(
       res,
       'Referral bookings retrieved',
-      bookings,
+      enriched,
       getPaginationMeta(pageNum, limitNum, total)
     );
   } catch (error) {
@@ -552,7 +650,7 @@ export const updateCommissionStatus = async (
 
 /**
  * Get all affiliates (Admin)
- * GET /api/v1/affiliates/admin/all
+ * GET /api/v1/admin/affiliates
  */
 export const getAllAffiliates = async (
   req: AuthRequest,
@@ -566,37 +664,242 @@ export const getAllAffiliates = async (
     const limitNum = Math.min(parseInt(limit, 10) || 10, 100);
     const skip = (pageNum - 1) * limitNum;
 
-    const [affiliates, total] = await Promise.all([
+    const [affiliates, total, totalPaidAgg] = await Promise.all([
       User.find({ role: 'affiliate' })
         .select('firstName lastName email createdAt')
         .skip(skip)
         .limit(limitNum)
         .sort({ createdAt: -1 }),
       User.countDocuments({ role: 'affiliate' }),
+      Commission.aggregate<{ _id: null; total: number }>([
+        { $match: { status: 'paid' } },
+        { $group: { _id: null, total: { $sum: '$commissionAmount' } } },
+      ]),
     ]);
 
-    // Get affiliate codes for each affiliate
-    const affiliatesWithCodes = await Promise.all(
-      affiliates.map(async (affiliate) => {
-        const codes = await AffiliateCode.find({ affiliateId: affiliate._id });
-        const totalEarnings = codes.reduce((sum, c) => sum + c.totalEarnings, 0);
-        const totalUsage = codes.reduce((sum, c) => sum + c.usageCount, 0);
+    const affiliateIds = affiliates.map((a) => a._id);
+    const commissionByAffiliate = new Map<
+      string,
+      { pending: number; approved: number; paid: number }
+    >();
 
-        return {
-          ...affiliate.toObject(),
-          codes: codes.map((c) => c.code),
-          totalEarnings,
-          totalUsage,
+    if (affiliateIds.length > 0) {
+      const rows = await Commission.aggregate<{
+        _id: { affiliateId: mongoose.Types.ObjectId; status: string };
+        total: number;
+      }>([
+        {
+          $match: {
+            affiliateId: { $in: affiliateIds },
+          },
+        },
+        {
+          $group: {
+            _id: { affiliateId: '$affiliateId', status: '$status' },
+            total: { $sum: '$commissionAmount' },
+          },
+        },
+      ]);
+
+      for (const row of rows) {
+        const aid = String(row._id.affiliateId);
+        const cur = commissionByAffiliate.get(aid) ?? {
+          pending: 0,
+          approved: 0,
+          paid: 0,
         };
-      })
+        const st = row._id.status as 'pending' | 'approved' | 'paid';
+        if (st === 'pending') cur.pending = row.total;
+        else if (st === 'approved') cur.approved = row.total;
+        else if (st === 'paid') cur.paid = row.total;
+        commissionByAffiliate.set(aid, cur);
+      }
+    }
+
+    const totalPaidOut = totalPaidAgg[0]?.total ?? 0;
+
+    const [allCodes, referralSignupCounts] = await Promise.all([
+      AffiliateCode.find({ affiliateId: { $in: affiliateIds } })
+        .sort({ createdAt: -1 })
+        .lean(),
+      affiliateIds.length > 0
+        ? User.aggregate<{ _id: mongoose.Types.ObjectId; count: number }>([
+            { $match: { referredBy: { $in: affiliateIds } } },
+            { $group: { _id: '$referredBy', count: { $sum: 1 } } },
+          ])
+        : Promise.resolve([]),
+    ]);
+
+    const codesByAffiliateId = new Map<string, (typeof allCodes)[number][]>();
+    for (const c of allCodes) {
+      const aid = String(c.affiliateId);
+      const list = codesByAffiliateId.get(aid);
+      if (list) list.push(c);
+      else codesByAffiliateId.set(aid, [c]);
+    }
+    for (const arr of codesByAffiliateId.values()) {
+      arr.sort(
+        (a, b) =>
+          new Date(b.createdAt as Date).getTime() - new Date(a.createdAt as Date).getTime()
+      );
+    }
+
+    const referralCountByAffiliate = new Map(
+      referralSignupCounts.map((r) => [String(r._id), r.count])
     );
 
-    successResponse(
-      res,
-      'Affiliates retrieved',
-      affiliatesWithCodes,
-      getPaginationMeta(pageNum, limitNum, total)
+    const affiliatesWithCodes = affiliates.map((affiliate) => {
+      const aid = String(affiliate._id);
+      const codes = codesByAffiliateId.get(aid) ?? [];
+      const totalEarnings = codes.reduce((sum, c) => sum + c.totalEarnings, 0);
+      const totalUsage = codes.reduce((sum, c) => sum + c.usageCount, 0);
+      /** Matches dashboard: users with referredBy = this affiliate */
+      const totalReferrals = referralCountByAffiliate.get(aid) ?? 0;
+
+      const comm = commissionByAffiliate.get(aid) ?? {
+        pending: 0,
+        approved: 0,
+        paid: 0,
+      };
+      const unpaidCommission = comm.pending + comm.approved;
+
+      return {
+        ...affiliate.toObject(),
+        codes: codes.map((c) => c.code),
+        affiliateCodes: codes.map((c) => ({
+          _id: c._id,
+          code: c.code,
+          isActive: c.isActive,
+          usageCount: c.usageCount,
+        })),
+        totalEarnings,
+        totalUsage,
+        totalReferrals,
+        /** Sum of commission rows not yet paid (pending + approved). */
+        unpaidCommission,
+        /** Approved and ready to mark paid / bank transfer. */
+        approvedCommission: comm.approved,
+        /** Already paid out (commissions with status paid). */
+        paidCommission: comm.paid,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Affiliates retrieved',
+      data: affiliatesWithCodes,
+      meta: getPaginationMeta(pageNum, limitNum, total),
+      totalPaidOut,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: account + latest referral partner onboarding (bank / business for payouts)
+ * GET /api/v1/admin/affiliates/:id/details
+ */
+export const getAffiliateAdminDetails = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError('Invalid affiliate id', 400);
+    }
+
+    const affiliate = await User.findById(id).select(
+      'firstName lastName email phoneNumber role isEmailVerified referralPartnerTermsAcceptedAt referralPartnerTermsVersion createdAt updatedAt'
     );
+
+    if (!affiliate || affiliate.role !== 'affiliate') {
+      throw new AppError('Affiliate not found', 404);
+    }
+
+    const onboarding = await ReferralPartnerOnboarding.findOne({ userId: id })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const referralPartnerOnboarding = onboarding
+      ? {
+          _id: onboarding._id,
+          status: onboarding.status,
+          businessType: onboarding.businessType,
+          categories: onboarding.categories,
+          businessInfo: onboarding.businessInfo || {},
+          documentPaths: onboarding.documentPaths || {},
+          rejectionReason: onboarding.rejectionReason,
+          createdAt: onboarding.createdAt,
+          updatedAt: onboarding.updatedAt,
+        }
+      : null;
+
+    successResponse(res, 'Affiliate details retrieved', {
+      user: affiliate.toObject(),
+      referralPartnerOnboarding,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mark all approved commissions for an affiliate as paid (Admin)
+ * POST /api/v1/admin/affiliates/:affiliateId/pay-commissions
+ */
+export const payAffiliateApprovedCommissions = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { affiliateId } = req.params;
+    const { paymentReference } = req.body as { paymentReference?: string };
+
+    if (!mongoose.Types.ObjectId.isValid(affiliateId)) {
+      throw new AppError('Invalid affiliate id', 400);
+    }
+
+    const affiliate = await User.findById(affiliateId);
+    if (!affiliate || affiliate.role !== 'affiliate') {
+      throw new AppError('Affiliate not found', 404);
+    }
+
+    const aid = new mongoose.Types.ObjectId(affiliateId);
+    const toMark = await Commission.find({
+      affiliateId: aid,
+      status: 'approved',
+    })
+      .select('_id commissionAmount')
+      .lean();
+
+    if (toMark.length === 0) {
+      throw new AppError('No approved commissions to pay out', 400);
+    }
+
+    const totalAmount = toMark.reduce((sum, c) => sum + c.commissionAmount, 0);
+    const paidAt = new Date();
+    const ids = toMark.map((c) => c._id);
+
+    const setDoc: Record<string, unknown> = {
+      status: 'paid',
+      paidAt,
+    };
+    if (paymentReference) {
+      setDoc.paymentReference = paymentReference;
+    }
+
+    await Commission.updateMany({ _id: { $in: ids } }, { $set: setDoc });
+
+    successResponse(res, 'Commissions marked as paid', {
+      count: toMark.length,
+      totalAmount,
+      commissionIds: ids,
+    });
   } catch (error) {
     next(error);
   }
@@ -907,7 +1210,7 @@ export const getMyReferrals = async (
 
     const [referredUsers, total] = await Promise.all([
       User.find({ referredBy: new mongoose.Types.ObjectId(userId) })
-        .select('firstName lastName email createdAt')
+        .select('firstName lastName email referralCode createdAt')
         .skip(skip)
         .limit(limitNum)
         .sort({ createdAt: -1 }),
