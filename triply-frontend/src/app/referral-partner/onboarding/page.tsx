@@ -17,13 +17,18 @@ import {
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { SERVICE_CATEGORIES, EMIRATES, CURRENCIES } from '@/lib/merchant-onboarding/constants';
+import { EMIRATES, CURRENCIES } from '@/lib/merchant-onboarding/constants';
+import { referralPartnerBusinessInfoSchema } from '@/lib/referral-partner-onboarding/validation';
+import type { BusinessInfo, BusinessType } from '@/lib/merchant-onboarding/types';
 import {
-  getDocumentsForBusinessType,
-  areRequiredDocumentsUploaded,
-} from '@/lib/merchant-onboarding/documentGenerator';
-import { businessInfoSchema } from '@/lib/merchant-onboarding/validation';
-import type { BusinessType, BusinessInfo } from '@/lib/merchant-onboarding/types';
+  REFERRAL_PROMOTION_CATEGORIES,
+  REFERRAL_PROFILE_TYPES,
+  type ReferralPartnerProfileType,
+} from '@/lib/referral-partner-onboarding/constants';
+import {
+  getReferralPartnerDocuments,
+  areReferralPartnerDocumentsComplete,
+} from '@/lib/referral-partner-onboarding/documents';
 import { affiliatesApi } from '@/lib/api/affiliates';
 import { cn } from '@/lib/utils';
 
@@ -31,12 +36,6 @@ const STEPS = [
   { num: 1, label: 'Profile type', icon: Briefcase },
   { num: 2, label: 'Your details', icon: UserCircle },
   { num: 3, label: 'Documents', icon: FileUp },
-];
-
-const BUSINESS_TYPES: { type: BusinessType; label: string }[] = [
-  { type: 'uae-company', label: 'UAE Company' },
-  { type: 'freelancer', label: 'UAE Freelancer' },
-  { type: 'international', label: 'International' },
 ];
 
 const defaultBusinessInfo: Partial<BusinessInfo> = {
@@ -50,7 +49,6 @@ const defaultBusinessInfo: Partial<BusinessInfo> = {
   bankName: '',
   accountHolderName: '',
   accountNumber: '',
-  vatTrn: '',
   currency: 'AED',
 };
 
@@ -60,7 +58,7 @@ export default function ReferralPartnerOnboardingPage() {
   const { toast } = useToast();
 
   const [step, setStep] = useState(1);
-  const [businessType, setBusinessType] = useState<BusinessType | null>(null);
+  const [businessType, setBusinessType] = useState<ReferralPartnerProfileType | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [businessInfo, setBusinessInfo] = useState<Partial<BusinessInfo>>(defaultBusinessInfo);
   const [documents, setDocuments] = useState<Record<string, { file: File | null; uploaded: boolean }>>({});
@@ -70,7 +68,7 @@ export default function ReferralPartnerOnboardingPage() {
 
   useEffect(() => {
     if (!businessType) return;
-    const docs = getDocumentsForBusinessType(businessType);
+    const docs = getReferralPartnerDocuments(businessType);
     setDocuments((prev) => {
       const next = { ...prev };
       docs.forEach((d) => {
@@ -96,17 +94,17 @@ export default function ReferralPartnerOnboardingPage() {
   };
 
   const canProceedStep1 = businessType !== null && categories.length > 0;
-  const step2Result = useMemo(() => businessInfoSchema.safeParse(businessInfo), [businessInfo]);
+  const step2Result = useMemo(() => referralPartnerBusinessInfoSchema.safeParse(businessInfo), [businessInfo]);
   const canProceedStep2 = () => step2Result.success;
   const step2Errors = !step2Result.success && step2Result.error?.errors
     ? step2Result.error.errors.map((e) => `${e.path[0]}: ${e.message}`).slice(0, 3)
     : [];
   const canProceedStep3 = useMemo(
-    () => (businessType ? areRequiredDocumentsUploaded(businessType, documents) : false),
+    () => (businessType ? areReferralPartnerDocumentsComplete(businessType, documents) : false),
     [businessType, documents]
   );
   const docsForBusinessType = useMemo(
-    () => (businessType ? getDocumentsForBusinessType(businessType) : []),
+    () => (businessType ? getReferralPartnerDocuments(businessType) : []),
     [businessType]
   );
 
@@ -143,7 +141,7 @@ export default function ReferralPartnerOnboardingPage() {
   };
 
   const handleSubmit = async () => {
-    const infoResult = businessInfoSchema.safeParse(businessInfo);
+    const infoResult = referralPartnerBusinessInfoSchema.safeParse(businessInfo);
     if (!infoResult.success || !businessType) {
       toast({ title: 'Validation error', description: 'Complete all steps correctly.', variant: 'destructive' });
       return;
@@ -159,7 +157,7 @@ export default function ReferralPartnerOnboardingPage() {
     setIsSubmitting(true);
     try {
       await affiliatesApi.submitReferralPartnerOnboarding({
-        businessType,
+        businessType: businessType as BusinessType,
         categories,
         businessInfo: infoResult.data as BusinessInfo,
         documents: docsRecord,
@@ -231,9 +229,7 @@ export default function ReferralPartnerOnboardingPage() {
           <h1 className="font-display text-2xl sm:text-3xl font-semibold text-foreground tracking-tight mt-2">
             Complete your application
           </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Same verification as merchant partners — without listing services. Admin approval is required before you receive your referral code.
-          </p>
+        
         </div>
 
         <div className="flex items-center w-full mb-2 px-2">
@@ -296,8 +292,8 @@ export default function ReferralPartnerOnboardingPage() {
               <>
                 <div className="space-y-1.5 sm:space-y-2">
                   <Label className="text-sm text-foreground">Your profile type *</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {BUSINESS_TYPES.map(({ type, label }) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl mx-auto">
+                    {REFERRAL_PROFILE_TYPES.map(({ type, label }) => (
                       <button
                         key={type}
                         type="button"
@@ -317,15 +313,15 @@ export default function ReferralPartnerOnboardingPage() {
                 <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
                   <p className="font-medium text-foreground mb-1">Documents</p>
                   <p>
-                    UAE Company: Trade License + Emirates ID. Freelancer: Permit + Emirates ID. International: Passport +
-                    registration.
+                    UAE Freelancer: Emirates ID and proof of address or bank statement. International: valid passport and
+                    proof of address or bank statement.
                   </p>
                 </div>
                 <div className="space-y-1.5 sm:space-y-2 pt-4 border-t border-border">
                   <Label className="text-sm text-foreground">What will you promote? *</Label>
                   <p className="text-xs text-muted-foreground">Select at least one category</p>
                   <div className="flex flex-wrap gap-2">
-                    {SERVICE_CATEGORIES.map((cat) => (
+                    {REFERRAL_PROMOTION_CATEGORIES.map((cat) => (
                       <button
                         key={cat}
                         type="button"
@@ -351,7 +347,7 @@ export default function ReferralPartnerOnboardingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="sm:col-span-2 space-y-1.5 sm:space-y-2">
                     <Label htmlFor="businessName" className="text-sm text-foreground">
-                      Name / Business name *
+                      Name *
                     </Label>
                     <Input
                       id="businessName"
@@ -460,16 +456,6 @@ export default function ReferralPartnerOnboardingPage() {
                       id="accountNumber"
                       value={businessInfo.accountNumber ?? ''}
                       onChange={(e) => setBusinessInfo((p) => ({ ...p, accountNumber: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <Label htmlFor="vatTrn" className="text-sm">
-                      VAT / TRN (optional)
-                    </Label>
-                    <Input
-                      id="vatTrn"
-                      value={businessInfo.vatTrn ?? ''}
-                      onChange={(e) => setBusinessInfo((p) => ({ ...p, vatTrn: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-1.5 sm:space-y-2">
