@@ -33,6 +33,8 @@ export interface IDestination extends Document {
   country: string;
   region?: string;
   depositAmount: number;
+  earlyBirdAmount: number;
+  standardAmount?: number;
   currency: string;
   highlights: string[];
   inclusions: string[];
@@ -85,6 +87,15 @@ const destinationSchema = new Schema<IDestination>(
       type: Number,
       default: 199,
       min: [0, 'Deposit amount cannot be negative'],
+    },
+    earlyBirdAmount: {
+      type: Number,
+      default: 0,
+      min: [0, 'Early bird amount cannot be negative'],
+    },
+    standardAmount: {
+      type: Number,
+      min: [0, 'Standard amount cannot be negative'],
     },
     currency: {
       type: String,

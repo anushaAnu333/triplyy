@@ -123,6 +123,17 @@ export default function DestinationDetailPage() {
   const images = destination.images?.length > 0 
     ? destination.images 
     : [destination.thumbnailImage || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1200'];
+  /** Package early-bird price (per person). Falls back to deposit only for legacy docs without the field. */
+  const earlyBirdAmount =
+    typeof destination.earlyBirdAmount === 'number'
+      ? destination.earlyBirdAmount
+      : destination.depositAmount;
+  const standardAmount = destination.standardAmount ?? 0;
+  const savingsAmount =
+    standardAmount > 0 && earlyBirdAmount > 0 && standardAmount > earlyBirdAmount
+      ? standardAmount - earlyBirdAmount
+      : 0;
+  const depositToPay = destination.depositAmount;
 
   return (
     <div className="min-h-screen">
@@ -349,10 +360,10 @@ export default function DestinationDetailPage() {
                 </span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-[34px] leading-none font-extrabold text-brand-orange tabular-nums">
-                    {destination.depositAmount.toLocaleString()}
+                    {earlyBirdAmount.toLocaleString()}
                   </span>
                   <span className="text-xs text-white/60 font-medium">
-                    {destination.currency} / deposit
+                    {destination.currency} / person
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-white/45 tracking-[0.04em]">
@@ -362,12 +373,22 @@ export default function DestinationDetailPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-white/45">Standard price</span>
                   <div className="inline-flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white/35 line-through">
-                      Coming soon
-                    </span>
-                    <span className="rounded-full bg-brand-orange/15 px-2 py-0.5 text-[11px] font-semibold text-brand-orange">
-                      Early bird active
-                    </span>
+                    {standardAmount > 0 ? (
+                      <>
+                        <span className="text-sm font-semibold text-white/35 line-through">
+                          {formatCurrency(standardAmount, destination.currency)}
+                        </span>
+                        {savingsAmount > 0 && (
+                          <span className="rounded-full bg-brand-orange/15 px-2 py-0.5 text-[11px] font-semibold text-brand-orange">
+                            Save {formatCurrency(savingsAmount, destination.currency)}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="rounded-full bg-brand-orange/15 px-2 py-0.5 text-[11px] font-semibold text-brand-orange">
+                        Early bird active
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -386,7 +407,7 @@ export default function DestinationDetailPage() {
                       Book with deposit
                     </span>
                     <span className="text-xl font-extrabold text-foreground">
-                      {formatCurrency(destination.depositAmount, destination.currency)}
+                      {formatCurrency(depositToPay, destination.currency)}
                     </span>
                   </div>
                   <span className="max-w-[120px] text-right text-[11px] text-muted-foreground">
@@ -420,7 +441,7 @@ export default function DestinationDetailPage() {
                   className="w-full rounded-[10px] bg-brand-orange py-6 text-sm font-bold tracking-[0.04em] text-white hover:bg-brand-orange/90"
                   onClick={handleBookNow}
                 >
-                  Book Now - {formatCurrency(destination.depositAmount, destination.currency)} Deposit
+                  Book Now - {formatCurrency(depositToPay, destination.currency)} Deposit
                 </Button>
 
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">

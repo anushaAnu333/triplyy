@@ -177,7 +177,7 @@ export const createDestination = async (
 ): Promise<void> => {
   try {
     const body = { ...req.body };
-    if (!body.slug && body.name) {
+    if (!body.slug && typeof body.name === 'string' && body.name.trim()) {
       body.slug = slugFromName(body.name);
     }
     const destination = await Destination.create(body);
@@ -200,7 +200,7 @@ export const updateDestination = async (
   try {
     const { id } = req.params;
     const body = { ...req.body };
-    if (!body.slug && body.name) {
+    if (!body.slug && typeof body.name === 'string' && body.name.trim()) {
       body.slug = slugFromName(body.name);
     }
 

@@ -13,6 +13,15 @@ import api from '@/lib/api/axios';
 
 const MAX_IMAGES = 5;
 
+/** Parse AED amount from input; empty field → `emptyAs` (default 0). Non-digits ignored. */
+function parseAmountInput(raw: string, emptyAs = 0): number {
+  const t = raw.trim();
+  if (t === '') return emptyAs;
+  const n = Number.parseInt(t, 10);
+  if (!Number.isFinite(n) || n < 0) return emptyAs;
+  return n;
+}
+
 function emptyPointGroup(): ItineraryPointGroup {
   return { text: '', subPoints: [] };
 }
@@ -30,7 +39,9 @@ const initialFormData = {
   shortDescription: '',
   country: '',
   region: '',
-  depositAmount: 199,
+  depositAmount: '199',
+  earlyBirdAmount: '',
+  standardAmount: '',
   durationDays: 1,
   durationNights: 1,
   thumbnailImage: '',
@@ -91,7 +102,15 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
         shortDescription: initialData.shortDescription || '',
         country: initialData.country,
         region: initialData.region || '',
-        depositAmount: initialData.depositAmount,
+        depositAmount: String(initialData.depositAmount ?? ''),
+        earlyBirdAmount:
+          initialData.earlyBirdAmount !== undefined && initialData.earlyBirdAmount !== null
+            ? String(initialData.earlyBirdAmount)
+            : '',
+        standardAmount:
+          initialData.standardAmount !== undefined && initialData.standardAmount !== null
+            ? String(initialData.standardAmount)
+            : '',
         durationDays: initialData.duration.days,
         durationNights: initialData.duration.nights,
         thumbnailImage: initialData.thumbnailImage || '',
@@ -278,13 +297,27 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.depositAmount.trim()) {
+      toast({
+        title: 'Deposit required',
+        description: 'Enter the deposit amount (e.g. 199).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const depositAmount = parseAmountInput(formData.depositAmount, 199);
+    const earlyBirdAmount = parseAmountInput(formData.earlyBirdAmount, 0);
+    const standardRaw = parseAmountInput(formData.standardAmount, 0);
+
     const payload: Record<string, unknown> = {
       name: formData.name,
       description: formData.description,
       shortDescription: formData.shortDescription || undefined,
       country: formData.country,
       region: formData.region || undefined,
-      depositAmount: formData.depositAmount,
+      depositAmount,
+      earlyBirdAmount,
+      standardAmount: standardRaw > 0 ? standardRaw : undefined,
       duration: { days: formData.durationDays, nights: formData.durationNights },
       thumbnailImage: formData.thumbnailImage || formData.images[0] || undefined,
       images: formData.images.length ? formData.images : undefined,
@@ -388,17 +421,56 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label>Deposit Amount (AED)</Label>
+                <Label>Early bird (AED / person)</Label>
                 <Input
-                  type="number"
-                  min={0}
-                  value={formData.depositAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, depositAmount: parseInt(e.target.value) || 0 })
-                  }
-                  required
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="e.g. 1499"
+                  value={formData.earlyBirdAmount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*$/.test(v)) {
+                      setFormData({ ...formData, earlyBirdAmount: v });
+                    }
+                  }}
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Standard (AED / person)</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="e.g. 1799"
+                  value={formData.standardAmount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*$/.test(v)) {
+                      setFormData({ ...formData, standardAmount: v });
+                    }
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Deposit (AED)</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="e.g. 199"
+                  value={formData.depositAmount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*$/.test(v)) {
+                      setFormData({ ...formData, depositAmount: v });
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Charged when the user books.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Days</Label>
                 <Input

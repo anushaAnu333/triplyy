@@ -28,6 +28,8 @@ export interface Destination {
   country: string;
   region?: string;
   depositAmount: number;
+  earlyBirdAmount?: number;
+  standardAmount?: number;
   currency: string;
   highlights?: string[];
   itinerary?: ItineraryDay[];

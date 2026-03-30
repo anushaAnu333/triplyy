@@ -31,6 +31,14 @@ export const destinationValidator = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage('Deposit amount must be a positive number'),
+  body('earlyBirdAmount')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Early bird amount must be a positive number'),
+  body('standardAmount')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage('Standard amount must be a positive number'),
   body('currency')
     .optional()
     .isLength({ min: 3, max: 3 })
