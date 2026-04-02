@@ -72,15 +72,15 @@ export function Header() {
       headerBg
     )}>
       <nav className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-24 sm:h-24 md:h-28 lg:h-32">
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
             <Image
               src="/images/triply-logo.png"
               alt="TRIPLY - Travel. Connect. Repeat."
               width={280}
-              height={80}
-              className="h-14 w-auto md:h-[100px] object-contain"
+              height={280}
+              className="h-[120px] w-auto sm:h-[88px] md:h-[110px] lg:h-[120px] object-contain"
               priority
             />
           </Link>
