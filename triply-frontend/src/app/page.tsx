@@ -88,6 +88,22 @@ const testimonials = [
   },
 ];
 
+type GooglePlaceReview = {
+  authorName: string;
+  profilePhotoUrl?: string;
+  rating: number;
+  text: string;
+  relativeTimeDescription?: string;
+};
+
+type GooglePlaceReviewsPayload = {
+  placeId: string;
+  mapsUrl: string;
+  averageRating: number;
+  ratingCount: number;
+  reviews: GooglePlaceReview[];
+};
+
 // Fallback images when no destinations are loaded
 const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1920';
 const DEFAULT_GALLERY = [
@@ -123,6 +139,12 @@ export default function HomePage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [heroImageLoaded, setHeroImageLoaded] = useState(false);
   const { user, isAuthenticated } = useAuth();
+
+  const [googleReviews, setGoogleReviews] = useState<GooglePlaceReviewsPayload | null>(null);
+  const [googleReviewsError, setGoogleReviewsError] = useState<string | null>(null);
+  const [isGoogleReviewsLoading, setIsGoogleReviewsLoading] = useState<boolean>(false);
+  const [googleReviewsSlide, setGoogleReviewsSlide] = useState(0);
+  const [googleReviewsPerSlide, setGoogleReviewsPerSlide] = useState(3);
   
   const statsRef = useInView(0.3);
   const galleryRef = useInView(0.1);
@@ -150,6 +172,65 @@ export default function HomePage() {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGoogleReviews = async () => {
+      try {
+        setIsGoogleReviewsLoading(true);
+        setGoogleReviewsError(null);
+
+        const res = await fetch('/api/google-place-reviews', { method: 'GET' });
+        const json = (await res.json()) as {
+          success: boolean;
+          message?: string;
+          data?: GooglePlaceReviewsPayload;
+        };
+
+        if (!res.ok || !json.success || !json.data) {
+          throw new Error(json.message || 'Google reviews could not be loaded.');
+        }
+
+        if (!cancelled) setGoogleReviews(json.data);
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'Google reviews could not be loaded.';
+        const friendly =
+          message.toLowerCase().includes('not configured') ||
+          message.toLowerCase().includes('places is not configured')
+            ? 'Google reviews will appear once Places API is configured.'
+            : message;
+        setGoogleReviewsError(friendly);
+      } finally {
+        if (!cancelled) setIsGoogleReviewsLoading(false);
+      }
+    };
+
+    loadGoogleReviews();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setGoogleReviewsPerSlide(mq.matches ? 1 : 3);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    setGoogleReviewsSlide(0);
+  }, [googleReviews?.placeId, googleReviews?.reviews.length]);
+
+  useEffect(() => {
+    const n = googleReviews?.reviews.length ?? 0;
+    if (n === 0) return;
+    const totalSlides = Math.max(1, Math.ceil(n / googleReviewsPerSlide));
+    const maxIdx = totalSlides - 1;
+    setGoogleReviewsSlide((s) => Math.min(s, maxIdx));
+  }, [googleReviewsPerSlide, googleReviews?.reviews.length]);
 
   const featuredDestinations = destinations?.data || [];
 
@@ -519,85 +600,159 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials */}
-      {/* <section ref={testimonialsRef.ref} className="py-24 bg-gray-50 relative overflow-hidden">
+      <section ref={testimonialsRef.ref} className="py-24 bg-gray-50 relative overflow-hidden">
         <div className="absolute top-20 left-10 text-brand-orange/10">
           <Quote className="w-48 h-48" />
         </div>
-        
+
         <div className="container mx-auto px-4 relative z-10">
-          <div className={`text-center mb-16 transition-all duration-700 ${testimonialsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          <div
+            className={`text-center mb-16 transition-all duration-700 ${
+              testimonialsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+            }`}
+          >
             <span className="inline-block text-brand-orange font-semibold text-sm uppercase tracking-wider mb-4 px-4 py-2 bg-brand-orange/10 rounded-full">
-              Testimonials
+              Reviews
             </span>
-            <h2 className="text-4xl md:text-5xl font-bold text-black">
-              Loved by Travelers
-            </h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-black">What people say on Google</h2>
           </div>
 
-          <div className={`max-w-4xl mx-auto relative transition-all duration-700 delay-200 ${testimonialsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-          
-            <button 
-              onClick={prevTestimonial}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-16 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all duration-300 z-20"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button 
-              onClick={nextTestimonial}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-16 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all duration-300 z-20"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-
-            <div className="overflow-hidden rounded-3xl">
-              <div 
-                className="flex transition-transform duration-500 ease-out" 
-                style={{ transform: `translateX(-${currentTestimonial * 100}%)` }}
-              >
-                {testimonials.map((testimonial, index) => (
-                  <div key={index} className="w-full flex-shrink-0 px-4">
-                    <Card className="p-8 md:p-12 bg-white border-0 shadow-xl text-center">
-                      <div className="flex justify-center mb-6">
-                        {[...Array(testimonial.rating)].map((_, i) => (
-                          <Star key={i} className="w-6 h-6 text-amber-400 fill-amber-400" />
-                        ))}
-                      </div>
-                      <blockquote className="text-xl md:text-2xl text-gray-700 mb-8 font-medium leading-relaxed">
-                        "{testimonial.text}"
-                      </blockquote>
-                      <div className="flex items-center justify-center gap-4">
-                        <div className="relative w-16 h-16 rounded-full overflow-hidden ring-4 ring-brand-orange/20">
-                          <Image 
-                            src={testimonial.image} 
-                            alt={testimonial.name} 
-                            fill
-                            className="object-cover" 
-                          />
-                        </div>
-                        <div className="text-left">
-                          <div className="font-bold text-black text-lg">{testimonial.name}</div>
-                          <div className="text-gray-500">{testimonial.location}</div>
-                        </div>
-                      </div>
-                    </Card>
+          <div
+            className={`max-w-6xl mx-auto transition-all duration-700 delay-200 ${
+              testimonialsRef.isInView ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+            }`}
+          >
+            <div className="flex flex-col items-center gap-4 mb-10">
+              {isGoogleReviewsLoading && (
+                <p className="text-sm text-gray-500">Loading Google reviews...</p>
+              )}
+              {googleReviewsError && (
+                <p className="text-sm text-red-600">{googleReviewsError}</p>
+              )}
+              {googleReviews && (
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    {[...Array(Math.max(0, Math.round(googleReviews.averageRating)))].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    ))}
+                    <span className="ml-2 text-sm font-semibold text-gray-800">
+                      {googleReviews.averageRating.toFixed(1)} / 5
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <span className="text-sm text-gray-500">
+                    {googleReviews.ratingCount} Google ratings
+                  </span>
+
+                  {googleReviews.mapsUrl && (
+                    <a
+                      href={googleReviews.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-brand-orange hover:underline"
+                    >
+                      View on Google Maps
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
-       
-            <div className="flex justify-center gap-3 mt-8">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentTestimonial(index)}
-                  className={`h-3 rounded-full transition-all duration-300 ${currentTestimonial === index ? 'bg-brand-orange w-10' : 'bg-gray-300 w-3 hover:bg-gray-400'}`}
-                />
-              ))}
-            </div>
+            {googleReviews && googleReviews.reviews.length > 0 ? (() => {
+              const reviews = googleReviews.reviews;
+              const perSlide = googleReviewsPerSlide;
+              const totalSlides = Math.max(1, Math.ceil(reviews.length / perSlide));
+              const maxSlideIndex = totalSlides - 1;
+              const clampedSlide = Math.min(googleReviewsSlide, maxSlideIndex);
+              const pageReviews = reviews.slice(
+                clampedSlide * perSlide,
+                clampedSlide * perSlide + perSlide
+              );
+
+              return (
+                <div className="relative px-10 md:px-14">
+                  {totalSlides > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous reviews"
+                        disabled={clampedSlide <= 0}
+                        onClick={() => setGoogleReviewsSlide((s) => Math.max(0, s - 1))}
+                        className="absolute left-0 top-1/2 z-20 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg transition-colors hover:bg-brand-orange hover:text-white disabled:pointer-events-none disabled:opacity-40 text-gray-700"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next reviews"
+                        disabled={clampedSlide >= maxSlideIndex}
+                        onClick={() => setGoogleReviewsSlide((s) => Math.min(maxSlideIndex, s + 1))}
+                        className="absolute right-0 top-1/2 z-20 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg transition-colors hover:bg-brand-orange hover:text-white disabled:pointer-events-none disabled:opacity-40 text-gray-700"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                    </>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    {pageReviews.map((review, idx) => (
+                      <Card
+                        key={`${review.authorName}-${clampedSlide}-${idx}`}
+                        className="flex h-full min-h-[280px] flex-col p-8 bg-white border-0 shadow-xl"
+                      >
+                        <div className="mb-4 flex shrink-0 justify-start">
+                          {[...Array(Math.max(0, Math.round(review.rating)))].map((_, i) => (
+                            <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                          ))}
+                        </div>
+                        <div className="min-h-0 flex-1">
+                          <p className="line-clamp-6 text-gray-700 leading-relaxed md:line-clamp-5">
+                            {review.text}
+                          </p>
+                        </div>
+                        <div className="mt-auto flex shrink-0 items-center gap-4 pt-5">
+                          {review.profilePhotoUrl ? (
+                            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-4 ring-brand-orange/20">
+                              <Image
+                                src={review.profilePhotoUrl}
+                                alt={review.authorName}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-orange/10 ring-4 ring-brand-orange/20">
+                              <span className="text-sm font-semibold text-brand-orange">
+                                {review.authorName.charAt(0)}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-bold text-black">{review.authorName}</div>
+                            {review.relativeTimeDescription && (
+                              <div className="text-xs text-gray-500">{review.relativeTimeDescription}</div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              );
+            })() : (
+              googleReviews && (
+                <p className="text-sm text-gray-500 text-center">
+                  No Google reviews found for this place yet.
+                </p>
+              )
+            )}
+
+            <p className="mt-6 text-center text-xs text-gray-400">
+              Powered by Google
+            </p>
           </div>
         </div>
-      </section> */}
+      </section>
 
       {/* Final CTA - Only show if user is not already an affiliate */}
       {!isAffiliate && (

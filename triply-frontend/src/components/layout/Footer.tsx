@@ -42,6 +42,10 @@ export function Footer() {
     return null;
   }
 
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    'Amber Gem Tower, Ajman, United Arab Emirates'
+  )}`;
+
   return (
     <footer className="bg-black text-white">
       <div className="container mx-auto px-4 py-4 md:py-4.5">
@@ -135,9 +139,15 @@ export function Footer() {
               </li>
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-orange" />
-                <span className="text-xs leading-snug text-white/60">
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs leading-snug text-white/60 hover:text-brand-orange transition-colors"
+                  aria-label="View on Google Maps"
+                >
                   Office No. BC-891204, 26th Floor, Amber Gem Tower, Sheikh Khalifa Street, Ajman, United Arab Emirates
-                </span>
+                </a>
               </li>
             </ul>
           </div>

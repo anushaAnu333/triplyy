@@ -23,6 +23,10 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_BASE_URL),
+  icons: {
+    icon: [{ url: '/images/triply-logo.png', type: 'image/png' }],
+    apple: [{ url: '/images/triply-logo.png', type: 'image/png' }],
+  },
   title: 'TR✨PLY — Reserve Your Next Adventure for AED 199',
   description: 'TR✨PLY is a travel community platform. Book your dream destinations with a small deposit. Unlock your calendar for a full year of adventure.',
   keywords: ['travel', 'booking', 'destinations', 'vacation', 'holidays', 'travel community', 'Stripe', 'Tamara', 'Tabby'],

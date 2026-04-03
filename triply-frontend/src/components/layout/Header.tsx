@@ -72,15 +72,15 @@ export function Header() {
       headerBg
     )}>
       <nav className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-24 sm:h-24 md:h-28 lg:h-32">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center shrink-0">
+          <Link href="/" className="flex shrink-0 flex-col items-start gap-0.5">
             <Image
               src="/images/triply-logo.png"
-              alt="TRIPLY - Travel. Connect. Repeat."
-              width={280}
-              height={280}
-              className="h-[120px] w-auto sm:h-[88px] md:h-[110px] lg:h-[120px] object-contain"
+              alt="TRIPLY"
+              width={120}
+              height={120}
+              className=" object-contain"
               priority
             />
           </Link>
@@ -92,7 +92,7 @@ export function Header() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'px-4 py-2 rounded-full text-sm font-medium transition-colors',
+                  'px-4 py-2 rounded-full  font-medium transition-colors',
                   pathname === item.href
                     ? 'bg-brand-orange/10 text-brand-orange'
                     : cn(textColor, 'hover:bg-black/5')
