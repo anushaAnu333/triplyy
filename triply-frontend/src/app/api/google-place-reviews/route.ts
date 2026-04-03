@@ -11,6 +11,8 @@ type GooglePlaceReview = {
 type GooglePlaceDetailsResponse = {
   status: 'OK' | string;
   result?: {
+    /** Canonical Maps listing URL — opens reliably on mobile vs ad-hoc place/?q= URLs */
+    url?: string;
     rating?: number;
     user_ratings_total?: number;
     reviews?: GooglePlaceReview[];
@@ -34,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
       );
     }
 
-    const fields = ['rating', 'user_ratings_total', 'reviews'].join(',');
+    const fields = ['rating', 'user_ratings_total', 'reviews', 'url'].join(',');
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
       placeId
     )}&fields=${encodeURIComponent(fields)}&key=${encodeURIComponent(apiKey)}`;
@@ -65,7 +67,9 @@ export async function GET(): Promise<NextResponse> {
       }))
       .filter((r) => r.rating >= MIN_GOOD_RATING && r.text.length > 0);
 
-    const mapsUrl = `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+    const mapsUrl =
+      json.result.url ||
+      `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`;
 
     return NextResponse.json({
       success: true,
