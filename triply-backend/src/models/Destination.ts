@@ -22,6 +22,13 @@ export interface IItineraryDay {
   overnight?: string;
 }
 
+/** Admin-only files (PDF / image URLs) for staff to download and send to travellers — not exposed on public APIs. */
+export interface IDestinationAdminAttachment {
+  url: string;
+  originalName: string;
+  mimeType?: string;
+}
+
 export interface IDestination extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -41,6 +48,8 @@ export interface IDestination extends Document {
   exclusions: string[];
   duration: Duration;
   itinerary?: IItineraryDay[];
+  /** Not returned from public destination endpoints */
+  adminOnlyAttachments?: IDestinationAdminAttachment[];
   calendarValidityDays?: number;
   isActive: boolean;
   createdAt: Date;
@@ -125,6 +134,20 @@ const destinationSchema = new Schema<IDestination>(
         overnight: { type: String },
       },
     ],
+    adminOnlyAttachments: {
+      type: [
+        {
+          url: { type: String, required: true, trim: true },
+          originalName: { type: String, required: true, trim: true },
+          mimeType: { type: String, trim: true },
+        },
+      ],
+      validate: {
+        validator: (v: unknown[]) => !v || v.length <= 15,
+        message: 'Maximum 15 internal files per destination',
+      },
+      default: undefined,
+    },
     calendarValidityDays: {
       type: Number,
       min: [1, 'Calendar validity must be at least 1 day'],

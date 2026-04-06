@@ -4,7 +4,7 @@ import { successResponse, createdResponse, getPaginationMeta } from '../utils/ap
 import AppError from '../utils/AppError';
 import { AuthRequest } from '../types/custom';
 import type { IPackageItineraryDay } from '../models/Package';
-import { uploadImage } from '../utils/cloudinary';
+import { uploadImage, uploadDestinationAdminFile } from '../utils/cloudinary';
 import { cleanupFiles } from '../utils/upload';
 
 function slugFromName(name: string): string {
@@ -15,6 +15,8 @@ function slugFromName(name: string): string {
 }
 
 const PACKAGE_IMAGE_FOLDER = 'triply/packages';
+const PACKAGE_ADMIN_FILES_FOLDER = 'triply/packages/admin-files';
+const MAX_ADMIN_ATTACHMENTS = 15;
 
 function normalizeItineraryFromBody(raw: unknown): IPackageItineraryDay[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
@@ -74,6 +76,24 @@ function normalizePricingTable(raw: unknown): Record<string, unknown> | undefine
     .filter(Boolean) as { category: string; values: number[] }[];
   if (!columnHeaders.length && !rows.length) return undefined;
   return { currency, columnHeaders, rows };
+}
+
+function normalizeAdminAttachments(raw: unknown): { url: string; originalName: string; mimeType?: string }[] {
+  if (!Array.isArray(raw)) return [];
+  const out: { url: string; originalName: string; mimeType?: string }[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const url = String(o.url || '').trim();
+    const originalName = String(o.originalName || '').trim();
+    if (!url || !originalName) continue;
+    out.push({
+      url,
+      originalName,
+      mimeType: o.mimeType != null ? String(o.mimeType) : undefined,
+    });
+  }
+  return out;
 }
 
 function normalizeHotelGroups(raw: unknown): { title: string; items: string[] }[] | undefined {
@@ -172,7 +192,8 @@ export const getPackageBySlug = async (
       throw new AppError('Package not found', 404);
     }
 
-    successResponse(res, 'Package retrieved successfully', pkg);
+    const { adminOnlyAttachments: _omit, ...publicPkg } = pkg;
+    successResponse(res, 'Package retrieved successfully', publicPkg);
   } catch (error) {
     next(error);
   }
@@ -261,6 +282,7 @@ function buildPackagePayload(body: Record<string, unknown>, partial: boolean): R
     promotionStartDate: body.promotionStartDate ? new Date(String(body.promotionStartDate)) : undefined,
     promotionEndDate: body.promotionEndDate ? new Date(String(body.promotionEndDate)) : undefined,
     isActive: body.isActive !== false,
+    adminOnlyAttachments: normalizeAdminAttachments(body.adminOnlyAttachments),
   };
 
   if (!partial) {
@@ -299,6 +321,10 @@ export const createPackage = async (
     }
 
     const data = buildPackagePayload(body, false);
+    const attachments = data.adminOnlyAttachments as { url: string; originalName: string; mimeType?: string }[] | undefined;
+    if (attachments && attachments.length > MAX_ADMIN_ATTACHMENTS) {
+      throw new AppError(`Maximum ${MAX_ADMIN_ATTACHMENTS} internal files allowed`, 400);
+    }
     const doc = await Package.create({
       name,
       slug,
@@ -332,6 +358,10 @@ export const updatePackage = async (
     if (body.name !== undefined) pkg.name = String(body.name).trim();
 
     const updates = buildPackagePayload(body, true);
+    const attachments = updates.adminOnlyAttachments as { url: string; originalName: string; mimeType?: string }[] | undefined;
+    if (attachments && attachments.length > MAX_ADMIN_ATTACHMENTS) {
+      throw new AppError(`Maximum ${MAX_ADMIN_ATTACHMENTS} internal files allowed`, 400);
+    }
     Object.assign(pkg, updates);
 
     if (body.location !== undefined) {
@@ -406,6 +436,47 @@ export const uploadPackageImagesHandler = async (
     }
 
     successResponse(res, 'Images uploaded', { urls });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Upload internal PDF/image attachments for a package (Admin)
+ * POST /api/v1/packages/upload-admin-attachments
+ */
+export const uploadPackageAdminAttachmentsHandler = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files?.length) {
+      throw new AppError('No files uploaded', 400);
+    }
+    const filePaths = files.map((f) => f.path).filter(Boolean);
+    if (filePaths.length !== files.length) {
+      throw new AppError('File path missing', 400);
+    }
+    const attachments: { url: string; originalName: string; mimeType: string }[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const path = filePaths[i];
+        const result = await uploadDestinationAdminFile(path, PACKAGE_ADMIN_FILES_FOLDER, {
+          mimetype: file.mimetype,
+        });
+        attachments.push({
+          url: result.url,
+          originalName: file.originalname || 'file',
+          mimeType: file.mimetype,
+        });
+      }
+    } finally {
+      cleanupFiles(filePaths);
+    }
+    successResponse(res, 'Files uploaded', { attachments });
   } catch (error) {
     next(error);
   }

@@ -46,6 +46,7 @@ export default function AdminDestinationsPage() {
     mutationFn: (id: string) => api.delete(`/destinations/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-destinations'] });
+      queryClient.invalidateQueries({ queryKey: ['destination-edit'] });
       toast({ title: 'Destination deleted successfully' });
     },
     onError: () => {

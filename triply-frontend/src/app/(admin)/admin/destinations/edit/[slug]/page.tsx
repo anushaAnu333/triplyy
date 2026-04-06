@@ -25,8 +25,10 @@ export default function EditDestinationPage() {
     isError: loadError,
   } = useQuery({
     queryKey: ['destination-edit', slug],
-    queryFn: () => destinationsApi.getBySlug(slug),
+    queryFn: () => destinationsApi.getAdminBySlug(slug),
     enabled: isAuthenticated && user?.role === 'admin' && !!slug,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

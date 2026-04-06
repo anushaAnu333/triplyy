@@ -4,6 +4,7 @@ import './globals.css';
 import { Providers } from '@/components/layout/Providers';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { FloatingWhatsAppCallback } from '@/components/layout/FloatingWhatsAppCallback';
 import { Toaster } from '@/components/ui/toaster';
 
 const APP_BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.triplysquads.com').replace(/\/$/, '');
@@ -77,6 +78,7 @@ export default function RootLayout({
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
+          <FloatingWhatsAppCallback />
           <Toaster />
         </Providers>
       </body>

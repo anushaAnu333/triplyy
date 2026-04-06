@@ -5,6 +5,7 @@ import {
   getPackagesForAdmin,
   getPackageByIdAdmin,
   uploadPackageImagesHandler,
+  uploadPackageAdminAttachmentsHandler,
   createPackage,
   updatePackage,
   deletePackage,
@@ -12,7 +13,7 @@ import {
 import { authenticate } from '../middleware/auth';
 import { adminOnly } from '../middleware/roleCheck';
 import { AuthRequest } from '../types/custom';
-import { uploadDestinationImages } from '../utils/upload';
+import { uploadDestinationImages, uploadDestinationAdminAttachments } from '../utils/upload';
 
 const router = Router();
 
@@ -22,6 +23,14 @@ router.post(
   adminOnly as any,
   uploadDestinationImages.array('images', 5),
   (req, res, next) => uploadPackageImagesHandler(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/upload-admin-attachments',
+  authenticate as any,
+  adminOnly as any,
+  uploadDestinationAdminAttachments.array('files', 5),
+  (req, res, next) => uploadPackageAdminAttachmentsHandler(req as AuthRequest, res, next)
 );
 
 router.get(

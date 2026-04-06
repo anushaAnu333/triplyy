@@ -2,12 +2,15 @@ import { Router } from 'express';
 import {
   getDestinations,
   getDestinationBySlug,
+  getDestinationAdminBySlug,
   getDestinationsForAdmin,
   createDestination,
   updateDestination,
   deleteDestination,
   getDestinationAvailability,
   uploadDestinationImagesHandler,
+  uploadDestinationAdminAttachmentsHandler,
+  proxyDestinationAttachmentDownload,
 } from '../controllers/destinationController';
 import { authenticate } from '../middleware/auth';
 import { adminOnly } from '../middleware/roleCheck';
@@ -18,7 +21,7 @@ import {
   destinationSlugValidator,
 } from '../validators/destinationValidator';
 import { AuthRequest } from '../types/custom';
-import { uploadDestinationImages } from '../utils/upload';
+import { uploadDestinationImages, uploadDestinationAdminAttachments } from '../utils/upload';
 
 const router = Router();
 
@@ -31,12 +34,35 @@ router.post(
   (req, res, next) => uploadDestinationImagesHandler(req as AuthRequest, res, next)
 );
 
+router.post(
+  '/upload-admin-attachments',
+  authenticate as any,
+  adminOnly as any,
+  uploadDestinationAdminAttachments.array('files', 5),
+  (req, res, next) => uploadDestinationAdminAttachmentsHandler(req as AuthRequest, res, next)
+);
+
 // Admin: list all destinations (active + inactive) - must be before /:slug
 router.get(
   '/admin/list',
   authenticate as any,
   adminOnly as any,
   (req, res, next) => getDestinationsForAdmin(req as AuthRequest, res, next)
+);
+
+router.get(
+  '/admin/by-slug/:slug',
+  authenticate as any,
+  adminOnly as any,
+  validate(destinationSlugValidator),
+  (req, res, next) => getDestinationAdminBySlug(req as AuthRequest, res, next)
+);
+
+router.post(
+  '/download-attachment',
+  authenticate as any,
+  adminOnly as any,
+  (req, res, next) => proxyDestinationAttachmentDownload(req as AuthRequest, res, next)
 );
 
 // Public routes

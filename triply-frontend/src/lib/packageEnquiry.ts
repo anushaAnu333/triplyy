@@ -18,7 +18,7 @@ export interface PackageEnquiryConfig {
 export function getPackageEnquiryConfig(): PackageEnquiryConfig {
   const phone =
     process.env.NEXT_PUBLIC_ENQUIRY_PHONE?.trim() || '+971 52 516 3595';
-  const email = process.env.NEXT_PUBLIC_ENQUIRY_EMAIL?.trim() || 'info@triply.com';
+  const email = process.env.NEXT_PUBLIC_ENQUIRY_EMAIL?.trim() || 'hello@triplysquad.com';
   const waRaw =
     process.env.NEXT_PUBLIC_ENQUIRY_WHATSAPP?.trim() || digitsOnly(phone) || '971525163595';
 

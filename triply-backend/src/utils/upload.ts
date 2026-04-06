@@ -67,6 +67,38 @@ export const uploadDestinationImages = multer({
   },
 });
 
+const destinationAdminAttachmentFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  const allowed = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+  ];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else
+    cb(
+      new AppError(
+        'Only PDF, JPEG, PNG, or WebP are allowed for internal destination files.',
+        400
+      )
+    );
+};
+
+/** Admin-only destination attachments (PDF + images), max 5 files per request */
+export const uploadDestinationAdminAttachments = multer({
+  storage: destinationStorage,
+  fileFilter: destinationAdminAttachmentFilter,
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15MB per file (PDFs)
+    files: 5,
+  },
+});
+
 const homepageStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, homepageUploadDir);

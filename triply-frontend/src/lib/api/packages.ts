@@ -19,6 +19,13 @@ export interface PackageHotelGroup {
   items: string[];
 }
 
+/** Staff-only files (PDF / images); not returned from public package endpoints. */
+export interface PackageAdminAttachment {
+  url: string;
+  originalName: string;
+  mimeType?: string;
+}
+
 export interface TripPackage {
   _id: string;
   name: string;
@@ -51,6 +58,8 @@ export interface TripPackage {
   promotionStartDate?: string;
   promotionEndDate?: string;
   isActive: boolean;
+  /** Present only when loaded via admin API */
+  adminOnlyAttachments?: PackageAdminAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -128,6 +137,44 @@ export const packagesApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return { urls: response.data.data?.urls ?? [] };
+  },
+
+  /** Upload PDF or image for admin-only package attachments (max 5 per request). */
+  uploadAdminAttachments: async (
+    files: File[]
+  ): Promise<{ attachments: PackageAdminAttachment[] }> => {
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file));
+    const response = await api.post('/packages/upload-admin-attachments', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const attachments = response.data.data?.attachments ?? [];
+    return { attachments };
+  },
+
+  /**
+   * Download a Cloudinary-stored attachment via the API (streams with Content-Disposition: attachment).
+   * Uses the shared destination proxy; admin auth required.
+   */
+  downloadAdminAttachment: async (att: PackageAdminAttachment): Promise<void> => {
+    const response = await api.post(
+      '/destinations/download-attachment',
+      { url: att.url, fileName: att.originalName || 'download' },
+      { responseType: 'blob' }
+    );
+    const blob = response.data as Blob;
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = att.originalName || 'download';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   },
 
   delete: async (id: string): Promise<void> => {

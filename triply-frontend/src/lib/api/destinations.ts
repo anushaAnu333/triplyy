@@ -5,6 +5,13 @@ export interface ItineraryPointGroup {
   subPoints: string[];
 }
 
+/** Staff-only files stored on the destination; not returned from public APIs */
+export interface DestinationAdminAttachment {
+  url: string;
+  originalName: string;
+  mimeType?: string;
+}
+
 export interface ItineraryDay {
   day: string;
   route?: string;
@@ -41,6 +48,10 @@ export interface Destination {
   };
   isActive: boolean;
   isFeatured?: boolean;
+  /** Present only when loaded via admin API */
+  adminOnlyAttachments?: DestinationAdminAttachment[];
+  /** Used to sync edit form only when server data actually changed */
+  updatedAt?: string;
 }
 
 export interface DestinationsResponse {
@@ -98,6 +109,12 @@ export const destinationsApi = {
     return response.data.data;
   },
 
+  /** Admin: full destination for editing, including internal attachments */
+  getAdminBySlug: async (slug: string): Promise<Destination> => {
+    const response = await api.get(`/destinations/admin/by-slug/${encodeURIComponent(slug)}`);
+    return response.data.data;
+  },
+
   getAvailability: async (
     destinationId: string,
     startDate?: string,
@@ -119,6 +136,44 @@ export const destinationsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return { urls: response.data.data?.urls ?? [] };
+  },
+
+  /** Upload PDF or image for admin-only destination attachments (max 5 per request). */
+  uploadAdminAttachments: async (
+    files: File[]
+  ): Promise<{ attachments: DestinationAdminAttachment[] }> => {
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file));
+    const response = await api.post('/destinations/upload-admin-attachments', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const attachments = response.data.data?.attachments ?? [];
+    return { attachments };
+  },
+
+  /**
+   * Download a Cloudinary-stored attachment via the API (streams with Content-Disposition: attachment).
+   * Avoids opening the PDF in the browser tab.
+   */
+  downloadAdminAttachment: async (att: DestinationAdminAttachment): Promise<void> => {
+    const response = await api.post(
+      '/destinations/download-attachment',
+      { url: att.url, fileName: att.originalName || 'download' },
+      { responseType: 'blob' }
+    );
+    const blob = response.data as Blob;
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = att.originalName || 'download';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   },
 };
 

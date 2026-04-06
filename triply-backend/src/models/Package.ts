@@ -37,6 +37,13 @@ export interface IPackagePricingTable {
   rows: { category: string; values: number[] }[];
 }
 
+/** Admin-only PDF / image URLs for staff — not exposed on public package APIs. */
+export interface IPackageAdminAttachment {
+  url: string;
+  originalName: string;
+  mimeType?: string;
+}
+
 export interface IPackage extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -72,6 +79,7 @@ export interface IPackage extends Document {
   promotionStartDate?: Date;
   promotionEndDate?: Date;
   isActive: boolean;
+  adminOnlyAttachments?: IPackageAdminAttachment[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -196,6 +204,20 @@ const packageSchema = new Schema<IPackage>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    adminOnlyAttachments: {
+      type: [
+        {
+          url: { type: String, required: true, trim: true },
+          originalName: { type: String, required: true, trim: true },
+          mimeType: { type: String, trim: true },
+        },
+      ],
+      validate: {
+        validator: (v: unknown[]) => !v || v.length <= 15,
+        message: 'Maximum 15 internal files per package',
+      },
+      default: undefined,
     },
   },
   {

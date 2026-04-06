@@ -2,16 +2,33 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Loader2, ChevronDown, ChevronRight, Upload, X, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Upload,
+  X,
+  Trash2,
+  Download,
+  FileText,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { destinationsApi, Destination, ItineraryDay, ItineraryPointGroup } from '@/lib/api/destinations';
+import {
+  destinationsApi,
+  Destination,
+  DestinationAdminAttachment,
+  ItineraryDay,
+  ItineraryPointGroup,
+} from '@/lib/api/destinations';
 import api from '@/lib/api/axios';
 
 const MAX_IMAGES = 5;
+const MAX_ADMIN_ATTACHMENTS = 15;
 
 /** Parse AED amount from input; empty field → `emptyAs` (default 0). Non-digits ignored. */
 function parseAmountInput(raw: string, emptyAs = 0): number {
@@ -50,6 +67,7 @@ const initialFormData = {
   inclusions: [] as string[],
   exclusions: [] as string[],
   highlights: [] as string[],
+  adminOnlyAttachments: [] as DestinationAdminAttachment[],
 };
 
 export interface DestinationFormProps {
@@ -68,12 +86,22 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
   const [openSections, setOpenSections] = useState({
     basic: true,
     images: false,
+    adminFiles: false,
     itinerary: false,
     includedExcluded: false,
   });
   const [formData, setFormData] = useState(initialFormData);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadingAdminFiles, setUploadingAdminFiles] = useState(false);
+  const [downloadingAdminIdx, setDownloadingAdminIdx] = useState<number | null>(null);
+  const adminFilesInputRef = useRef<HTMLInputElement>(null);
+
+  /** Only re-hydrate the form when this server identity/version changes — not on every React Query refetch. */
+  const editDataVersion =
+    mode === 'edit' && initialData
+      ? `${initialData._id}:${initialData.updatedAt ?? ''}`
+      : '';
 
   useEffect(() => {
     if (mode === 'edit' && initialData) {
@@ -119,9 +147,19 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
         inclusions: initialData.inclusions || [],
         exclusions: initialData.exclusions || [],
         highlights: initialData.highlights || [],
+        adminOnlyAttachments: Array.isArray(initialData.adminOnlyAttachments)
+          ? initialData.adminOnlyAttachments.map((a) => ({
+              url: a.url,
+              originalName: a.originalName,
+              mimeType: a.mimeType,
+            }))
+          : [],
       });
     }
-  }, [mode, initialData]);
+    // Intentionally omit `initialData` from deps: its reference changes on every React Query refetch.
+    // We only re-sync when `editDataVersion` changes (server _id + updatedAt).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [mode, editDataVersion]);
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/destinations', data),
@@ -140,6 +178,9 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
       api.put(`/destinations/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-destinations'] });
+      if (mode === 'edit' && initialData?.slug) {
+        queryClient.invalidateQueries({ queryKey: ['destination-edit', initialData.slug] });
+      }
       toast({ title: 'Destination updated successfully' });
       onSuccess();
     },
@@ -271,6 +312,40 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
     }
   };
 
+  const handleAdminAttachmentsUpload = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const remaining = MAX_ADMIN_ATTACHMENTS - formData.adminOnlyAttachments.length;
+    if (remaining <= 0) {
+      toast({
+        title: `Maximum ${MAX_ADMIN_ATTACHMENTS} internal files`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    const toUpload = Array.from(files).slice(0, remaining);
+    setUploadingAdminFiles(true);
+    try {
+      const { attachments } = await destinationsApi.uploadAdminAttachments(toUpload);
+      setFormData((prev) => ({
+        ...prev,
+        adminOnlyAttachments: [...prev.adminOnlyAttachments, ...attachments].slice(
+          0,
+          MAX_ADMIN_ATTACHMENTS
+        ),
+      }));
+      if (attachments.length < toUpload.length) {
+        toast({ title: 'Some files failed to upload', variant: 'destructive' });
+      } else {
+        toast({ title: 'File(s) uploaded — save the destination to keep them' });
+      }
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploadingAdminFiles(false);
+      if (adminFilesInputRef.current) adminFilesInputRef.current.value = '';
+    }
+  };
+
   const handleImageUpload = async (files: FileList | null) => {
     if (!files?.length) return;
     const remaining = MAX_IMAGES - formData.images.length;
@@ -348,6 +423,7 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
       inclusions: formData.inclusions.filter(Boolean),
       exclusions: formData.exclusions.filter(Boolean),
       highlights: formData.highlights.filter(Boolean),
+      adminOnlyAttachments: formData.adminOnlyAttachments,
     };
 
     if (mode === 'edit' && initialData) {
@@ -628,6 +704,115 @@ export function DestinationForm({ mode, initialData, onSuccess, onCancel }: Dest
                   }
                 }}
               />
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Internal files — admin only (not shown to travellers on the site) */}
+      <section className="rounded-xl border bg-card p-1">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between p-4 text-left font-medium"
+          onClick={() => setOpenSections((s) => ({ ...s, adminFiles: !s.adminFiles }))}
+        >
+          Internal files (PDF / image)
+          {openSections.adminFiles ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+        {openSections.adminFiles && (
+          <div className="space-y-4 border-t px-4 pb-4 pt-2">
+         
+            <input
+              ref={adminFilesInputRef}
+              type="file"
+              accept=".pdf,image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={(e) => handleAdminAttachmentsUpload(e.target.files)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={uploadingAdminFiles || formData.adminOnlyAttachments.length >= MAX_ADMIN_ATTACHMENTS}
+              onClick={() => adminFilesInputRef.current?.click()}
+            >
+              {uploadingAdminFiles ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Upload PDF or image
+            </Button>
+            {formData.adminOnlyAttachments.length > 0 && (
+              <ul className="space-y-2">
+                {formData.adminOnlyAttachments.map((att, i) => (
+                  <li
+                    key={`${att.url}-${i}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="truncate text-sm font-medium" title={att.originalName}>
+                        {att.originalName}
+                      </span>
+                      {att.mimeType && (
+                        <span className="hidden text-xs text-muted-foreground sm:inline">
+                          ({att.mimeType === 'application/pdf' ? 'PDF' : 'Image'})
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingAdminIdx === i}
+                        onClick={async () => {
+                          setDownloadingAdminIdx(i);
+                          try {
+                            await destinationsApi.downloadAdminAttachment(att);
+                          } catch {
+                            toast({
+                              title: 'Download failed',
+                              description: 'Check your connection and try again.',
+                              variant: 'destructive',
+                            });
+                          } finally {
+                            setDownloadingAdminIdx(null);
+                          }
+                        }}
+                      >
+                        {downloadingAdminIdx === i ? (
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="mr-1 h-3.5 w-3.5" />
+                        )}
+                        Download
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            adminOnlyAttachments: prev.adminOnlyAttachments.filter((_, j) => j !== i),
+                          }))
+                        }
+                        aria-label={`Remove ${att.originalName}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}

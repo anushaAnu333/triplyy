@@ -89,6 +89,30 @@ export function getPayoutStatusLabel(status: string): string {
   return labels[status] || status;
 }
 
+/**
+ * Rewrites a Cloudinary `secure_url` so the asset is served with `Content-Disposition: attachment`
+ * (`fl_attachment`). Browsers ignore the HTML `download` attribute on cross-origin links; this does not.
+ * @see https://cloudinary.com/documentation/image_transformation_reference#fl_attachment
+ */
+export function cloudinaryForceDownloadUrl(secureUrl: string, fileName: string): string {
+  const trimmed = secureUrl.trim();
+  if (!trimmed.includes('res.cloudinary.com')) {
+    return trimmed;
+  }
+  const safe =
+    fileName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_').slice(0, 200) || 'download';
+  const marker = '/upload/';
+  const idx = trimmed.indexOf(marker);
+  if (idx === -1) {
+    return trimmed;
+  }
+  const after = trimmed.slice(idx + marker.length);
+  if (after.startsWith('fl_attachment:')) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, idx + marker.length)}fl_attachment:${safe}/${after}`;
+}
+
 /** Merchant hub pages: wide column; horizontal padding only (parent layout supplies top offset for fixed header). */
 export const MERCHANT_PAGE_WIDTH_CLASS =
   'mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8';

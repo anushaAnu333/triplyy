@@ -550,7 +550,7 @@ export default function MerchantOnboardingPage() {
                     type="email"
                     value={businessInfo.email ?? ''}
                     onChange={(e) => setBusinessInfo((p) => ({ ...p, email: e.target.value }))}
-                    placeholder="info@yourbusiness.com"
+                    placeholder="hello@triplysquads.com"
                   />
                 </div>
                 <div className="space-y-1.5 sm:space-y-2">

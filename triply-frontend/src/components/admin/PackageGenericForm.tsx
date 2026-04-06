@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
+import { Download, FileText, Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +10,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import type { ItineraryDay } from '@/lib/api/destinations';
-import type { TripPackage } from '@/lib/api/packages';
+import type { PackageAdminAttachment, TripPackage } from '@/lib/api/packages';
 import { packagesApi } from '@/lib/api/packages';
 import { ItineraryDaysEditor, emptyItineraryDay, serializeItineraryForApi } from '@/components/admin/ItineraryDaysEditor';
 
 type PricingRowForm = { category: string; values: string[] };
 type HotelGroupForm = { title: string; items: string[] };
 const MAX_IMAGES = 5;
+const MAX_ADMIN_ATTACHMENTS = 15;
 
 interface PackageGenericFormState {
   name: string;
@@ -41,6 +42,7 @@ interface PackageGenericFormState {
   inclusions: string[];
   exclusions: string[];
   importantNotes: string[];
+  adminOnlyAttachments: PackageAdminAttachment[];
 }
 
 function createEmptyDay(index: number): ItineraryDay {
@@ -89,6 +91,13 @@ function stateFromPackage(pkg: TripPackage): PackageGenericFormState {
     inclusions: pkg.inclusions || [],
     exclusions: pkg.exclusions || [],
     importantNotes: pkg.importantNotes || [],
+    adminOnlyAttachments: Array.isArray(pkg.adminOnlyAttachments)
+      ? pkg.adminOnlyAttachments.map((a) => ({
+          url: a.url,
+          originalName: a.originalName,
+          mimeType: a.mimeType,
+        }))
+      : [],
   };
 }
 
@@ -116,6 +125,7 @@ function initialCreateState(): PackageGenericFormState {
     inclusions: [],
     exclusions: [],
     importantNotes: [],
+    adminOnlyAttachments: [],
   };
 }
 
@@ -131,9 +141,12 @@ export function PackageGenericForm({ mode, initialData, onSuccess, onCancel }: P
   const queryClient = useQueryClient();
   const thumbnailUploadRef = useRef<HTMLInputElement>(null);
   const imagesUploadRef = useRef<HTMLInputElement>(null);
+  const adminFilesInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<PackageGenericFormState>(() => initialCreateState());
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingAdminFiles, setUploadingAdminFiles] = useState(false);
+  const [downloadingAdminIdx, setDownloadingAdminIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (mode === 'edit' && initialData) setForm(stateFromPackage(initialData));
@@ -231,6 +244,33 @@ export function PackageGenericForm({ mode, initialData, onSuccess, onCancel }: P
     }
   };
 
+  const handleAdminAttachmentsUpload = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const remaining = MAX_ADMIN_ATTACHMENTS - form.adminOnlyAttachments.length;
+    if (remaining <= 0) {
+      toast({ title: `Maximum ${MAX_ADMIN_ATTACHMENTS} documents allowed`, variant: 'destructive' });
+      return;
+    }
+    const selected = Array.from(files).slice(0, remaining);
+    setUploadingAdminFiles(true);
+    try {
+      const { attachments } = await packagesApi.uploadAdminAttachments(selected);
+      if (!attachments.length) {
+        toast({ title: 'Upload failed', variant: 'destructive' });
+        return;
+      }
+      setForm((p) => ({
+        ...p,
+        adminOnlyAttachments: [...p.adminOnlyAttachments, ...attachments].slice(0, MAX_ADMIN_ATTACHMENTS),
+      }));
+    } catch {
+      toast({ title: 'Document upload failed', variant: 'destructive' });
+    } finally {
+      setUploadingAdminFiles(false);
+      if (adminFilesInputRef.current) adminFilesInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -282,6 +322,7 @@ export function PackageGenericForm({ mode, initialData, onSuccess, onCancel }: P
       promotionEndDate: form.validUntil ? new Date(`${form.validUntil}T00:00:00.000Z`).toISOString() : undefined,
       isPromotion: !!form.validUntil.trim(),
       isActive: form.isActive,
+      adminOnlyAttachments: form.adminOnlyAttachments,
     };
 
     if (!payload.name || !payload.location || !payload.description) {
@@ -403,6 +444,103 @@ export function PackageGenericForm({ mode, initialData, onSuccess, onCancel }: P
                   </div>
                 ))}
               </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-2 border-t pt-4">
+            <Label>Internal documents (admin only)</Label>
+            <p className="text-xs text-muted-foreground">
+              Upload PDFs or images for your team. These are not shown on the public package page.
+            </p>
+            <input
+              ref={adminFilesInputRef}
+              type="file"
+              accept=".pdf,image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={(e) => handleAdminAttachmentsUpload(e.target.files)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={uploadingAdminFiles || form.adminOnlyAttachments.length >= MAX_ADMIN_ATTACHMENTS}
+              onClick={() => adminFilesInputRef.current?.click()}
+            >
+              {uploadingAdminFiles ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Upload PDF or document
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              {form.adminOnlyAttachments.length}/{MAX_ADMIN_ATTACHMENTS} files
+            </p>
+            {form.adminOnlyAttachments.length > 0 ? (
+              <ul className="space-y-2">
+                {form.adminOnlyAttachments.map((att, i) => (
+                  <li
+                    key={`${att.url}-${i}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="truncate text-sm font-medium" title={att.originalName}>
+                        {att.originalName}
+                      </span>
+                      {att.mimeType ? (
+                        <span className="hidden text-xs text-muted-foreground sm:inline">
+                          ({att.mimeType === 'application/pdf' ? 'PDF' : 'Image'})
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingAdminIdx === i}
+                        onClick={async () => {
+                          setDownloadingAdminIdx(i);
+                          try {
+                            await packagesApi.downloadAdminAttachment(att);
+                          } catch {
+                            toast({
+                              title: 'Download failed',
+                              description: 'Check your connection and try again.',
+                              variant: 'destructive',
+                            });
+                          } finally {
+                            setDownloadingAdminIdx(null);
+                          }
+                        }}
+                      >
+                        {downloadingAdminIdx === i ? (
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="mr-1 h-3.5 w-3.5" />
+                        )}
+                        Download
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600"
+                        onClick={() =>
+                          setForm((p) => ({
+                            ...p,
+                            adminOnlyAttachments: p.adminOnlyAttachments.filter((_, j) => j !== i),
+                          }))
+                        }
+                        aria-label={`Remove ${att.originalName}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : null}
           </div>
         </CardContent>

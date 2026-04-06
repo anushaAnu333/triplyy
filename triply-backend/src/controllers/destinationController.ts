@@ -3,7 +3,7 @@ import { Destination, Availability } from '../models';
 import { successResponse, createdResponse, getPaginationMeta } from '../utils/apiResponse';
 import AppError from '../utils/AppError';
 import { AuthRequest, DestinationFilters } from '../types/custom';
-import { uploadImage } from '../utils/cloudinary';
+import { uploadImage, uploadDestinationAdminFile, fetchCloudinaryAssetForProxy } from '../utils/cloudinary';
 import { cleanupFiles } from '../utils/upload';
 
 function slugFromName(name: string): string {
@@ -11,6 +11,15 @@ function slugFromName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+}
+
+const MAX_ADMIN_ATTACHMENTS = 15;
+
+/** Strip fields that must never appear on public destination APIs */
+function toPublicDestinationPayload(doc: unknown): Record<string, unknown> {
+  const n = normalizeDestination(doc) as Record<string, unknown>;
+  const { adminOnlyAttachments: _omit, ...rest } = n;
+  return rest;
 }
 
 /** Normalize destination from legacy multilingual shape to single-language shape for API response */
@@ -121,7 +130,9 @@ export const getDestinationsForAdmin = async (
 
     const [rawDestinations, total] = await Promise.all([
       Destination.find(query)
-        .select('name slug shortDescription thumbnailImage country region depositAmount currency duration isActive')
+        .select(
+          '_id name slug shortDescription thumbnailImage country region depositAmount currency duration isActive'
+        )
         .skip(skip)
         .limit(limitNum)
         .sort({ createdAt: -1 })
@@ -160,6 +171,27 @@ export const getDestinationBySlug = async (
       throw new AppError('Destination not found', 404);
     }
 
+    successResponse(res, 'Destination retrieved successfully', toPublicDestinationPayload(raw));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: get destination by slug for editing (includes adminOnlyAttachments; any isActive)
+ * GET /api/v1/destinations/admin/by-slug/:slug
+ */
+export const getDestinationAdminBySlug = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const raw = await Destination.findOne({ slug }).lean();
+    if (!raw) {
+      throw new AppError('Destination not found', 404);
+    }
     successResponse(res, 'Destination retrieved successfully', normalizeDestination(raw));
   } catch (error) {
     next(error);
@@ -179,6 +211,12 @@ export const createDestination = async (
     const body = { ...req.body };
     if (!body.slug && typeof body.name === 'string' && body.name.trim()) {
       body.slug = slugFromName(body.name);
+    }
+    if (
+      Array.isArray(body.adminOnlyAttachments) &&
+      body.adminOnlyAttachments.length > MAX_ADMIN_ATTACHMENTS
+    ) {
+      throw new AppError(`Maximum ${MAX_ADMIN_ATTACHMENTS} internal files allowed`, 400);
     }
     const destination = await Destination.create(body);
 
@@ -202,6 +240,12 @@ export const updateDestination = async (
     const body = { ...req.body };
     if (!body.slug && typeof body.name === 'string' && body.name.trim()) {
       body.slug = slugFromName(body.name);
+    }
+    if (
+      Array.isArray(body.adminOnlyAttachments) &&
+      body.adminOnlyAttachments.length > MAX_ADMIN_ATTACHMENTS
+    ) {
+      throw new AppError(`Maximum ${MAX_ADMIN_ATTACHMENTS} internal files allowed`, 400);
     }
 
     const destination = await Destination.findByIdAndUpdate(id, body, {
@@ -299,6 +343,48 @@ export const getDestinationAvailability = async (
 };
 
 const DESTINATION_IMAGE_FOLDER = 'triply/destinations';
+const DESTINATION_ADMIN_FILES_FOLDER = 'triply/destinations/admin-files';
+
+/**
+ * Upload internal PDF/image attachments for a destination (Admin)
+ * POST /api/v1/destinations/upload-admin-attachments
+ */
+export const uploadDestinationAdminAttachmentsHandler = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files?.length) {
+      throw new AppError('No files uploaded', 400);
+    }
+    const filePaths = files.map((f) => f.path).filter(Boolean);
+    if (filePaths.length !== files.length) {
+      throw new AppError('File path missing', 400);
+    }
+    const attachments: { url: string; originalName: string; mimeType: string }[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const path = filePaths[i];
+        const result = await uploadDestinationAdminFile(path, DESTINATION_ADMIN_FILES_FOLDER, {
+          mimetype: file.mimetype,
+        });
+        attachments.push({
+          url: result.url,
+          originalName: file.originalname || 'file',
+          mimeType: file.mimetype,
+        });
+      }
+    } finally {
+      cleanupFiles(filePaths);
+    }
+    successResponse(res, 'Files uploaded', { attachments });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Upload destination images (Admin) - max 5, returns URLs
@@ -331,6 +417,68 @@ export const uploadDestinationImagesHandler = async (
       cleanupFiles(filePaths);
     }
     successResponse(res, 'Images uploaded', { urls });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Stream a Cloudinary file to the browser with Content-Disposition: attachment so it downloads
+ * instead of opening inline. Uses POST body so long URLs are not mangled in query strings.
+ * POST /api/v1/destinations/download-attachment  { url, fileName }
+ */
+export const proxyDestinationAttachmentDownload = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const body = req.body as { url?: unknown; fileName?: unknown };
+    const rawUrl = typeof body.url === 'string' ? body.url : '';
+    const fileNameRaw = typeof body.fileName === 'string' ? body.fileName : '';
+    if (!rawUrl.trim()) {
+      throw new AppError('url is required in request body', 400);
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl.trim());
+    } catch {
+      throw new AppError('Invalid url', 400);
+    }
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'res.cloudinary.com') {
+      throw new AppError('Only https://res.cloudinary.com URLs are allowed', 400);
+    }
+    const safeFileName =
+      fileNameRaw.trim()
+        ? fileNameRaw.trim().replace(/[^\w.\s-]/g, '_').replace(/\s+/g, ' ').slice(0, 200)
+        : 'download';
+
+    let cloudinaryFetch: globalThis.Response;
+    try {
+      cloudinaryFetch = await fetchCloudinaryAssetForProxy(rawUrl.trim());
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('Not a valid res.cloudinary.com')) {
+        throw new AppError('Could not build a signed URL for this file. Check the Cloudinary URL.', 400);
+      }
+      throw new AppError(
+        'Could not reach Cloudinary from the server. Check network / DNS or try again.',
+        502
+      );
+    }
+    if (!cloudinaryFetch.ok) {
+      throw new AppError(
+        `Could not fetch file from storage (upstream HTTP ${cloudinaryFetch.status})`,
+        502
+      );
+    }
+    const contentType = cloudinaryFetch.headers.get('content-type') || 'application/octet-stream';
+    const buffer = Buffer.from(await cloudinaryFetch.arrayBuffer());
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName.replace(/"/g, '')}"`);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.send(buffer);
   } catch (error) {
     next(error);
   }
