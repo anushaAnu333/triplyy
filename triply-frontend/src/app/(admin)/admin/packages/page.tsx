@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, Edit, Trash2, Search, MapPin, Package } from 'lucide-react';
+import { Plus, Edit, Eye, Trash2, Search, MapPin, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -128,7 +128,26 @@ export default function AdminPackagesPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {pkg.isActive ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/packages/${encodeURIComponent(pkg.slug)}`}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        title="Inactive packages are hidden from the public catalogue"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/admin/packages/${pkg._id}/edit`}>
                         <Edit className="h-4 w-4 mr-1" />
