@@ -199,7 +199,7 @@ export function FloatingWhatsAppCallback() {
     <>
       <div
         className={cn(
-          'fixed bottom-5 left-5 z-[45] transition-opacity duration-200 md:bottom-6 md:left-6',
+          'fixed bottom-5 right-5 z-[45] transition-opacity duration-200 md:bottom-6 md:right-6',
           open && 'pointer-events-none opacity-0'
         )}
       >
